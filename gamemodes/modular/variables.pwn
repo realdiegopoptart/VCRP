@@ -58,6 +58,7 @@
 #define THREAD_LOAD_LOCATIONS (11)
 #define THREAD_LOAD_TICKETS (12)
 #define THREAD_SHOW_CHARACTER (13)
+#define THREAD_LOAD_MASTERACCOUNT_DATA (14)
 
 // MODEL DEFINES //
 #define MODEL_SELECTION_GLASSES (1)
@@ -340,10 +341,6 @@ enum playerData {
 	pAmmo[13],
 	pFLAttached, // FlashLight System
 	pTLAttached, // Tac FlashLight system
-	pTutorial,
-	pTutorialTime,
-	pTutorialStage,
-	pTutorialObject,
 	pRepairTimer,
 	pUnableToRepair,
 	pHouse,
@@ -496,7 +493,6 @@ enum playerData {
 	pTargetLevel,
 	pVendorTime,
 	pLoopAnim,
-	pExecute,
 	pBoombox,
 	pTakeItems,
 	PlayerBar:pDrinkBar,
@@ -1065,7 +1061,6 @@ enum ninerData {
 new g_iHandle;
 new g_StatusOOC;
 new g_TaxVault;
-new g_ServerLocked;
 new Text:gServerTextdraws[4];
 new option;
 

@@ -1095,6 +1095,7 @@ public Advertise(playerid)
 	foreach (new i : Player) if (!PlayerData[i][pDisableBC]) {
 	    SendClientMessageEx(i, 0x00AA00FF, "[Newspaper]: %s (Contact: %d)", text, PlayerData[playerid][pPhone]);
 	}
+
 	SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF} Last advertisement was created by: %s [Ph#: %d]", ReturnName(playerid, 0), PlayerData[playerid][pPhone]);
 	PlayerData[playerid][pAdvertise][0] = 0;
 	return 1;
@@ -3142,27 +3143,6 @@ stock Backpack_Save(id)
 	return mysql_tquery(g_iHandle, query);
 }
 
-stock StartTutorial(playerid)
-{
-	ShowHungerTextdraw(playerid, 0);
-	TogglePlayerControllable(playerid, 0);
-
-    PlayerData[playerid][pTutorial] = 1;
-    PlayerData[playerid][pTutorialTime] = 10;
-
-	SetPlayerPos(playerid, -182.6985,1206.2393,15.7004);
-	SetPlayerCameraPos(playerid, -160.5459, 1188.9489, 21.9486);
-
-	SetPlayerCameraLookAt(playerid, -161.3947, 1189.4855, 21.9245);
-
-	for (new i = 58; i < 62; i ++) {
-	    PlayerTextDrawShow(playerid, PlayerData[playerid][pTextdraws][i]);
-	}
-	SetPlayerInterior(playerid, 0);
-	SetPlayerVirtualWorld(playerid, 1337);
-	return 1;
-}
-
 stock ShowLoginTD(playerid)
 {
 	for (new i = 84; i < 91; i ++) {
@@ -4801,11 +4781,14 @@ SetAccessories(playerid)
 
 SQL_LoadCharacter(playerid, characterid)
 {
+	SendClientMessageToAllEx(-1, "[Debug] SQL_LoadCharacter: yes it got read in time  %i", characterid);
 	if (characterid < 1 || characterid > 3)
 		return 0;
 
 	new
 		query[160];
+
+	SendClientMessageToAllEx(-1, "[Debug] SQL_LoadCharacter: Loading character  %i", characterid);
 
 	format(query, sizeof(query), "UPDATE `characters` SET `LastLogin` = '%d' WHERE `Username` = '%s' AND `chara` = '%s'", gettime(), PlayerData[playerid][pUsername], PlayerCharacters[playerid][characterid - 1]);
 	mysql_tquery(g_iHandle, query);
@@ -4848,6 +4831,7 @@ ShowCharacterMenu(playerid)
 	new string[132];
     format(string, sizeof(string), "%s\n%s\n%s", (!PlayerCharacters[playerid][0][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][0]), (!PlayerCharacters[playerid][1][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][1]), (!PlayerCharacters[playerid][2][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][2]));
 	Dialog_Show(playerid, LoginIntoChar, DIALOG_STYLE_LIST, "Select Character", string, "Select", "");
+	return 1;
 }
 
 GetClosestGarbage(playerid)
@@ -7842,7 +7826,7 @@ Job_Refresh(jobid)
 		static
 		    string[90];
 
-		format(string, sizeof(string), "[%s]\n{FFFFFF}Type /takejob to acquire this job!", Job_GetName(JobData[jobid][jobType]));
+		format(string, sizeof(string), "[%s]\n{FFFFFF}Duty Point", Job_GetName(JobData[jobid][jobType]));
 
 		if (JobData[jobid][jobType] == 1) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Courier]\n{FFFFFF}Type /loadcrate to get crates.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
@@ -11844,9 +11828,6 @@ ResetStatistics(playerid)
 	PlayerData[playerid][pProductModify] = 0;
 	PlayerData[playerid][pDonator] = 0;
 	PlayerData[playerid][pFightStyle] = 4;
-	PlayerData[playerid][pTutorial] = 0;
-	PlayerData[playerid][pTutorialTime] = 0;
-	PlayerData[playerid][pTutorialStage] = 0;
 	PlayerData[playerid][pHouse] = -1;
 	PlayerData[playerid][pBusiness] = -1;
 	PlayerData[playerid][pEntrance] = -1;
@@ -11981,7 +11962,6 @@ ResetStatistics(playerid)
 	PlayerData[playerid][pTargetLevel] = 0;
 	PlayerData[playerid][pVendorTime] = 0;
 	PlayerData[playerid][pLoopAnim] = 0;
-	PlayerData[playerid][pExecute] = 0;
 	PlayerData[playerid][pBoombox] = INVALID_PLAYER_ID;
 	PlayerData[playerid][pTakeItems] = INVALID_PLAYER_ID;
  	PlayerData[playerid][pDrinkBar] = INVALID_PLAYER_BAR_ID;
@@ -12122,12 +12102,10 @@ SelectCharacter(playerid, id)
 	PlayerData[playerid][pCharacter] = id;
 
 	if (!PlayerCharacters[playerid][id - 1][0])
-	    return Dialog_Show(playerid, ForceToCharMenuDialog, DIALOG_STYLE_MSGBOX, "Create Character", "You must create a character on the UCP\n\n\n("SERVER_URL")", "Back", "");
+	    return Dialog_Show(playerid, ForceToCharMenuDialog, DIALOG_STYLE_MSGBOX, "Create Character", "You must create a character on the UCP\n\n("SERVER_URL")", "Back", "");
 
 	static
 	    query[200];
-
-	PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][72], PlayerCharacters[playerid][id - 1]);
 
 	format(query, sizeof(query), "SELECT `skin`, `Birthdate`, `Origin`, `CreateDate`, `LastLogin` FROM `characters` WHERE `chara` = '%s'", PlayerCharacters[playerid][id - 1]);
 	mysql_tquery(g_iHandle, query, "OnQueryFinished", "dd", playerid, THREAD_SHOW_CHARACTER);
@@ -12145,6 +12123,7 @@ Dialog:ForceToCharMenuDialog(playerid, response, listitem, inputtext[])
 	{
 		ShowCharacterMenu(playerid);
 	}
+	return 1;
 }
 
 
@@ -12732,40 +12711,18 @@ public OnObjectMoved(objectid)
 	return 1;
 }
 
-forward OnQueryExecute(playerid, query[]);
-public OnQueryExecute(playerid, query[])
-{
-	static
-	    rows,
-	    fields;
-
-	cache_get_data(rows, fields, g_iHandle);
-
-	if (strfind(query, "SELECT", true) != -1)
-		Dialog_Show(playerid, ExecuteQuery, DIALOG_STYLE_INPUT, "Execute Query", "Success: MySQL returned %d rows from your query.\n\nPlease specify the MySQL query to execute below:", "Execute", "Back", rows);
-
-	else
-		Dialog_Show(playerid, ExecuteQuery, DIALOG_STYLE_INPUT, "Execute Query", "Success: Query executed successfully (affected rows: %d).\n\nPlease specify the MySQL query to execute below:", "Execute", "Back", cache_affected_rows());
-
-	PlayerData[playerid][pExecute] = 0;
-	return 1;
-}
-
 public OnQueryError(errorid, error[], callback[], query[], connectionHandle)
 {
-	foreach (new i : Player)
+	foreach(new i : Player)
 	{
-		if (PlayerData[i][pAdmin] >= 6 && PlayerData[i][pExecute])
+		if(PlayerData[i][pAdmin] >= 6)
 		{
-	    	PlayerData[i][pExecute] = 0;
-	    	Dialog_Show(i, ExecuteQuery, DIALOG_STYLE_INPUT, "Execute Query", "Error: \"%s\"\n\nPlease specify the MySQL query to execute below:", "Execute", "Back", error);
+	    	Dialog_Show(i, ShowOnly, DIALOG_STYLE_INPUT, "[!] MySQL Alert", "Error: %s\nCallback %s\nQuery %s", "Ok", "", error, callback, query);
 		}
 	}
- 	printf("** [MySQL]: %s", error);
+ 	printf("[MySQL]: Error: %s\nCallback %s\nQuery %s", error, callback, query);
 	return 1;
 }
-
-
 
 stock IsCorrectMail(mail[])
 {
@@ -12844,14 +12801,14 @@ public OnQueryFinished(extraid, threadid)
 			    cache_get_row(0, 0, loginDate, g_iHandle);
 
 				format(PlayerData[extraid][pLoginDate], 36, loginDate);
-				ShowLoginTD(extraid);
+				// ShowLoginTD(extraid);
 		        Dialog_Show(extraid, LoginScreen, DIALOG_STYLE_PASSWORD, "Account Login", "Welcome back to Vice City Roleplay!\n\nPlease enter your password below to login to your account:", "Login", "Cancel", PlayerData[extraid][pLoginDate]);
 			}
 			else
 			{
-			    KickEx(extraid);
 				SendClientMessage(extraid, COLOR_ANTICHEAT, "You must register a master account with the ucp ("SERVER_URL")");
 			    Dialog_Show(extraid, ShowOnly, DIALOG_STYLE_MSGBOX, "Account Registration", "Welcome to Vice City County Roleplay, %s.\n\nYou must register a master account on our UCP. "SERVER_URL"", "Register", "Cancel", ReturnName(extraid));
+				KickEx(extraid);
 			}
     	}
     	case THREAD_LOGIN:
@@ -12929,8 +12886,8 @@ public OnQueryFinished(extraid, threadid)
 				        return 0;
 					}
 					static
-					    query[128]
-					;
+					    query[128];
+
 			        PlayerData[extraid][pID] = cache_get_field_int(0, "ID");
 			        PlayerData[extraid][pCreated] = cache_get_field_int(0, "Created");
 			        PlayerData[extraid][pGender] = cache_get_field_int(0, "Gender");
@@ -12953,8 +12910,8 @@ public OnQueryFinished(extraid, threadid)
 			        PlayerData[extraid][pBankMoney] = cache_get_field_int(0, "BankMoney");
 			        PlayerData[extraid][pOwnsBillboard] = cache_get_field_int(0, "OwnsBillboard");
 					PlayerData[extraid][pSavings] = cache_get_field_int(0, "Savings");
-			        PlayerData[extraid][pAdmin] = cache_get_field_int(0, "Admin");
-			        PlayerData[extraid][pHelper] = cache_get_field_int(0, "Helper");
+			        // PlayerData[extraid][pAdmin] = cache_get_field_int(0, "Admin"); DO NOT LOAD HERE
+			        // PlayerData[extraid][pHelper] = cache_get_field_int(0, "Helper"); DO NOT LOAD HERE
 					PlayerData[extraid][pPlayersAssisted] = cache_get_field_int(0, "PlayersAssisted");
 					PlayerData[extraid][pCompliments] = cache_get_field_int(0, "Complimented");
 			        PlayerData[extraid][pAccent] = cache_get_field_int(0, "Accent");
@@ -13004,11 +12961,13 @@ public OnQueryFinished(extraid, threadid)
 					PlayerData[extraid][pWeaponLicense] = cache_get_field_int(0, "WeaponLicense");
 					PlayerData[extraid][pToggleChatAnim] = cache_get_field_int(0, "ChatAnim");
 
+					LoadDataFromMasterAccount(extraid);
+
 					OnlineOnDatabase(extraid, 1);
 
 					cache_get_field_content(0, "Warn1", PlayerData[extraid][pWarn1], g_iHandle, 32);
 					cache_get_field_content(0, "Warn2", PlayerData[extraid][pWarn2], g_iHandle, 32);
-					cache_get_field_content(0, "ForumName", PlayerData[extraid][pForumName], g_iHandle, 32);
+					// cache_get_field_content(0, "ForumName", PlayerData[extraid][pForumName], g_iHandle, 32); // DO NOT LOAD HERE
 
 			        for (new i = 0; i < 13; i ++) {
 			            format(query, sizeof(query), "Gun%d", i + 1);
@@ -13297,20 +13256,13 @@ public OnQueryFinished(extraid, threadid)
 		{
 			cache_get_data(rows, fields, g_iHandle);
 
-			if (rows)
+			if(rows)
 			{
-			    static
-			        skin,
-			        birthdate[16],
-			        origin[32],
-					string[128];
+			    new skin, birthdate[16], origin[32], string[128];
 
 			    skin = cache_get_field_int(0, "skin");
-
 				cache_get_field_content(0, "Birthdate", birthdate, g_iHandle);
 				cache_get_field_content(0, "Origin", origin, g_iHandle);
-
-				PlayerTextDrawSetPreviewModel(extraid, PlayerData[extraid][pTextdraws][73], skin);
 
 				if (!strlen(birthdate)) {
 				    birthdate = "Not Specified";
@@ -13318,27 +13270,86 @@ public OnQueryFinished(extraid, threadid)
 				if (!strlen(origin)) {
 				    origin = "Not Specified";
 				}
-				format(string, sizeof(string), "~b~DOB:~w~ %s", birthdate);
-				PlayerTextDrawSetString(extraid, PlayerData[extraid][pTextdraws][74], string);
 
-				format(string, sizeof(string), "~b~Origin:~w~ %s", origin);
-				PlayerTextDrawSetString(extraid, PlayerData[extraid][pTextdraws][75], string);
+				new dialogtitle[60];
+				format(dialogtitle, sizeof(dialogtitle), "Viewing: %s", PlayerCharacters[extraid][PlayerData[extraid][pCharacter]]);
 
-				format(string, sizeof(string), "~b~Creation:~w~ %s", GetDuration(gettime() - cache_get_field_int(0, "CreateDate")));
-				PlayerTextDrawSetString(extraid, PlayerData[extraid][pTextdraws][76], string);
+				format(string, sizeof(string),
+				"Skin ID: %i\nDOB: %s\nOrigin: %s\nCreated: %s\nLast Login %s\n"COL_GREEN"Select Character", skin, birthdate, origin, GetDuration(gettime() - cache_get_field_int(0, "CreateDate")), GetDuration(gettime() - cache_get_field_int(0, "LastLogin")));
+				Dialog_Show(extraid, SpawnCharacter, DIALOG_STYLE_LIST, dialogtitle, string, "Back", "Select");
+			}
+		}
+		case THREAD_LOAD_MASTERACCOUNT_DATA:
+		{
+			cache_get_data(rows, fields, g_iHandle);
 
-				format(string, sizeof(string), "~b~Played:~w~ %s", GetDuration(gettime() - cache_get_field_int(0, "LastLogin")));
-				PlayerTextDrawSetString(extraid, PlayerData[extraid][pTextdraws][77], string);
-
-				for (new i = 0; i < 8; i ++) {
-				    PlayerTextDrawHide(extraid, PlayerData[extraid][pTextdraws][i]);
-				}
-			    for (new i = 71; i < 81; i ++) {
-			        PlayerTextDrawShow(extraid, PlayerData[extraid][pTextdraws][i]); // for later edit me
-				}
+			if(rows)
+			{
+				PlayerData[extraid][pAdmin] = cache_get_field_int(0, "Admin");
+				PlayerData[extraid][pHelper] = cache_get_field_int(0, "Helper");
+				cache_get_field_content(0, "ForumName", PlayerData[extraid][pForumName], g_iHandle, 32);
 			}
 		}
 	}
+	return 1;
+}
+
+Dialog:SpawnCharacter(playerid, response, listitem, inputtext[])
+{
+	if(!response)
+	{
+		ShowCharacterMenu(playerid);
+	}
+	else
+	{
+		if(listitem == 0)
+		{
+			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
+			printf("[Debug]: Listitem 0 selected.\n");
+			return 1;
+		}
+		if(listitem == 1)
+		{
+			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
+			printf("[Debug]: Listitem 1 selected.\n");
+			return 1;
+		}
+		if(listitem == 2)
+		{
+			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
+			printf("[Debug]: Listitem 2 selected.\n");
+			return 1;
+		}
+		if(listitem == 3)
+		{
+			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
+			printf("[Debug]: Listitem 3 selected.\n");
+			return 1;
+		}
+		if(listitem == 4)
+		{
+			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
+			printf("[Debug]: Listitem 4 selected.\n");
+			return 1;
+		}
+		if(listitem == 5)
+		{
+			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
+			printf("[Debug]: Listitem 5 selected.\n");
+			return 1;
+		}
+	}
+	return 1;
+}
+
+forward LoadDataFromMasterAccount(extraid);
+public LoadDataFromMasterAccount(extraid)
+{
+	new query[250];
+	new name[MAX_PLAYER_NAME];
+	GetPlayerName(extraid, name, sizeof(name));
+	format(query, sizeof(query), "SELECT accounts.Admin, accounts.Helper, accounts.ForumName, characters.Username FROM accounts AND characters WHERE characters.Username = accounts.username AND characters.chara = %s", name);
+	mysql_tquery(g_iHandle, query, "OnQueryFinished", "dd", extraid, THREAD_LOAD_MASTERACCOUNT_DATA);
 	return 1;
 }
 
@@ -14679,141 +14690,6 @@ public PlayerCheck()
 			SetPlayerScore(i, PlayerData[i][pPlayingHours]);
 		}
 
-		if (PlayerData[i][pTutorial] > 0)
-		{
-		    PlayerData[i][pTutorialTime]--;
-
-		    if (PlayerData[i][pTutorialTime] < 1)
-		    {
-		        switch (PlayerData[i][pTutorial])
-		        {
-		            case 1:
-		            {
-		                PlayerData[i][pTutorial] = 2;
-		                PlayerData[i][pTutorialTime] = 10;
-
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Driving School");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "This is the ~g~~h~Driving School~w~. You can take your~n~driving test here. To pass the test, you must~n~drive carefully.");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "A driving license is required to legally drive. Driving recklessly or without a~n~license might get you in trouble with the police!");
-
-
-			            SetPlayerPos(i, -134.9305, 1105.5978, -8.0646);
-						InterpolateCameraPos(i, 238.0131, 904.5291, 49.9577, -134.9305, 1105.5978, 42.0646, 2000);
-						InterpolateCameraLookAt(i, 237.8939, 905.5259, 49.6735, -135.4419, 1104.7345, 41.2754, 2000);
-			        }
-                    case 2:
-		            {
-		                PlayerData[i][pTutorial] = 3;
-		                PlayerData[i][pTutorialTime] = 10;
-
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Dealership");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "This is the ~g~~h~Dealership~w~. You can purchase any~n~private owned vehicle for yourself, for a~n~certain price.");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "Please remember to ~b~~h~/park~w~ your vehicle! Your~n~vehicle will be impounded if it's not parked~n~correctly.");
-
-
-
-						SetPlayerPos(i, -262.7292, 1694.7659, -8.2351);
-						InterpolateCameraPos(i, -134.9305, 1105.5978, 42.0646, -262.7292, 1694.7659, 73.2351, 2000);
-						InterpolateCameraLookAt(i, -135.4419, 1104.7345, 41.2754, -263.3710, 1695.5376, 72.9660, 2000);
-					}
-		            case 3:
-		            {
-		                PlayerData[i][pTutorial] = 4;
-		                PlayerData[i][pTutorialTime] = 10;
-
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Jobs");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "There are a wide variety of jobs around the~n~city to choose from, this one being the~n~~r~~h~Mining~w~ job.");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "There are many more jobs that will bring in~n~the income. Use ~g~~h~/joblist~w~ to find your preferred~n~job!");
-
-						SetPlayerPos(i, 239.1794, 1023.6111, -8.9276);
-						InterpolateCameraPos(i, -262.7292, 1694.7659, 73.2351, 239.1794, 1023.6111, 78.9276, 2000);
-						InterpolateCameraLookAt(i, -263.3710, 1695.5376, 72.9660, 239.9599, 1022.9797, 78.5684, 2000);
-			        }
-		            case 4:
-		            {
-		                PlayerData[i][pTutorial] = 5;
-		                PlayerData[i][pTutorialTime] = 10;
-
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Real Estate");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "There are many real estate opportunities in~n~Red County. To purchase a house, type ~g~~h~/buy~n~~w~near the house icon.");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "You can also purchase furniture and store your~n~goods inside your house. Type ~g~~h~/househelp~w~ for a list~n~of house commands.");
-
-
-						SetPlayerPos(i, -184.4301,962.8553,14.1038);
-						InterpolateCameraPos(i, 239.1794, 1023.6111, 78.9276, -199.5218, 962.1165, 22.1159, 2000);
-						InterpolateCameraLookAt(i, 239.9599, 1022.9797, 78.5684, -198.6496, 962.6139, 22.0767, 2000);
-			        }
-		            case 5:
-		            {
-		                PlayerData[i][pTutorial] = 6;
-		                PlayerData[i][pTutorialTime] = 10;
-
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Businesses");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "Businesses are also a way to bring in income.~n~You can adjust your business assets, including~n~the prices and a custom message.");//and even~n~hire employees to work for you!");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "There are retail stores, pawn stores, gun stores, and more! You can buy~n~items using the ~g~~h~/buy~w~ command. Type ~g~~h~/help~n~~w~for more commands.");
-
-
-						SetPlayerPos(i, -120.0801, 1151.7568, -8.0557);
-						InterpolateCameraPos(i, -83.9483, 1153.2788, 140.5102, -120.0801, 1151.7568, 113.0557, 2000);
-						InterpolateCameraLookAt(i, -83.7402, 1152.2955, 139.5809, -121.0644, 1151.5537, 111.9114, 2000);
-
-					}
-			        case 6:
-		            {
-		                PlayerData[i][pTutorial] = 7;
-		                PlayerData[i][pTutorialTime] = 10;
-
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Hunger and Thirst");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "Your hunger and thirst meter is shown on~n~the right side of the screen. After a while~n~your character will get hungry.");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "This is a ~y~Fast Food~w~ business. You can purchase~n~food here. Also, you can purchase food and~n~drinks at a ~y~Retail Store.");
-
-						SetPlayerInterior(i, 10);
-						SetPlayerPos(i, 365.013977, -73.615165, 983.073730);
-						SetPlayerCameraPos(i, 365.013977, -73.615165, 1003.073730);
-						SetPlayerCameraLookAt(i, 365.426818, -73.318977, 1003.007812);
-			        }
-		            case 7:
-		            {
-		                PlayerData[i][pTutorial] = 8;
-		                PlayerData[i][pTutorialTime] = 10;
-
-						SetPlayerInterior(i, 0);
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][59], "Tutorial: Conclusion");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][60], "This tutorial is now finished. Remember, if you~n~need any assistance, use the ~g~~h~/support~n~~w~command and wait patiently.");
-		                PlayerTextDrawSetString(i, PlayerData[i][pTextdraws][61], "Vice City ~r~Roleplay~w~ wishes to thank you for~n~playing at our server! You will spawn in a~n~moment.");
-
-
-			            SetPlayerPos(i, 432.0097,602.9031,14.9220);
-						InterpolateCameraPos(i,  555.3524, 427.9088, 21.5244, 431.2985, 605.4611, 21.1730, 2000);
-						InterpolateCameraLookAt(i, 554.7565, 428.7165, 21.4752, 430.7305, 606.2885, 21.1638, 2000);
-				    }
-		            case 8:
-		            {
-		                for (new j = 58; j < 62; j ++) {
-		                    PlayerTextDrawHide(i, PlayerData[i][pTextdraws][j]);
-						}
-						SetDefaultSpawn(i);
-
-		                PlayerData[i][pCreated] = 1;
-		                PlayerData[i][pTask] = 1;
-
-		                PlayerData[i][pTutorial] = 0;
-		                PlayerData[i][pTutorialTime] = 0;
-
-		                SetPlayerVirtualWorld(i, 0);
-                        GameTextForPlayer(i, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~w~Loading Textures", 1000, 3);
-
-                        PlayerData[i][pCreated] = 1;
-					    PlayerData[i][pTask] = 1;
-				  		PlayerData[i][pTutorial] = 0;
-						PlayerData[i][pTutorialTime] = 0;
-						SendServerMessage(i, "Type /todo to view your current tasks to complete.");
-                        SendServerMessage(i, "Use /help to check out your commands and assistance for a Administrators help.");
-                        SendServerMessage(i, "Remember, You must complete your TASKS before talking or using commands!");
-					}
-		        }
-		    }
-		}
 		if(PlayerData[i][pChannel] == 911 && GetFactionType(i) != FACTION_POLICE)
 		{
 		    PlayerData[i][pChannel] = 0;
@@ -15473,12 +15349,54 @@ public OnRconCommand(cmd[])
 
 public OnPlayerPickUpDynamicPickup(playerid, pickupid)
 {
-	/*
-	if(pickupid == JobData[jobid][jobPickups][0])
+	if(Dialog_Opened(playerid)) return 0;
+
+
+	for (new i = 0; i < MAX_DYNAMIC_JOBS; i ++)
 	{
-		// code here
+		if(pickupid == JobData[i][jobPickups][0])
+		{
+			new jobid = Job_Nearest(playerid);
+
+			if(PlayerData[playerid][pJob] == 0)
+			{
+				new string[180];
+				format(string, sizeof(string), "Would you like to go on duty as a %s?", JobData[jobid][jobType]);
+				Dialog_Show(playerid, JoinJob, DIALOG_STYLE_LIST, Job_GetName(JobData[jobid][jobType]), string, "Yes", "Cancel");
+			}
+			else if(PlayerData[playerid][pJob] != 0)
+			{
+				Dialog_Show(playerid, LeaveJob, DIALOG_STYLE_LIST, Job_GetName(JobData[jobid][jobType]), "Would you like to go off duty from your current job?", "Yes", "Cancel");
+			}
+		}
 	}
-	*/
+
+	return 1;
+}
+
+Dialog:JoinJob(playerid, response, listitem, inputtext[])
+{
+	if(!response)
+	{
+
+	}
+	else
+	{
+		cmd_debug_joinjob(playerid, "\1");
+	}
+	return 1;
+}
+
+Dialog:LeaveJob(playerid, response, listitem, inputtext[])
+{
+	if(!response)
+	{
+
+	}
+	else
+	{
+		cmd_debug_leavejob(playerid, "\1");
+	}
 	return 1;
 }
 
@@ -16564,7 +16482,7 @@ public UnfreezeBMX(playerid)
 
 public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 {
-	if (PlayerData[playerid][pTutorial] || PlayerData[playerid][pHospital] != -1 || !IsPlayerSpawned(playerid) || PlayerData[playerid][pInjured])
+	if (PlayerData[playerid][pHospital] != -1 || !IsPlayerSpawned(playerid) || PlayerData[playerid][pInjured])
 	    return 0;
 
 	if(IsPlayerInAnyVehicle(playerid))
@@ -16584,13 +16502,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	{
 		cmd_open(playerid, "\1");
 	}
-	/*if (newkeys & KEY_CROUCH && IsPlayerInRangeOfPoint(playerid, 1.5, -226.4219, 1408.4594, 26.7734) && PlayerData[playerid][pTutorialStage] == 1)
-	{
-	    DisablePlayerCheckpoint(playerid);
-
-		PlayerData[playerid][pTutorialStage] = 2;
-	    SendClientMessage(playerid, COLOR_SERVER, "Press 'N' to pickup any nearby item whilst crouched.");
-	}*/
 	if (newkeys & KEY_YES && IsPlayerSpawned(playerid))
 	{
 	    if (PlayerData[playerid][pJailTime] > 0)
@@ -16809,15 +16720,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	    static
 	        string[320];
 
-		/*if (PlayerData[playerid][pTutorialStage] == 2 && IsPlayerInRangeOfPoint(playerid, 1.5, -226.4219, 1408.4594, 26.7734) && GetPlayerSpecialAction(playerid) == SPECIAL_ACTION_DUCK)
-		{
-		    Inventory_Add(playerid, "Demo Soda", 1543);
-		    DestroyPlayerObject(playerid, PlayerData[playerid][pTutorialObject]);
-
-            PlayerData[playerid][pTutorialStage] = 3;
- 		    SendClientMessage(playerid, COLOR_SERVER, "Press 'Y' to open your inventory and select the soda bottle.");
-		    return 1;
-		}*/
 		if (IsPlayerInVehicle(playerid, GetPlayerVehicleID(playerid)))
 		{
 		    cmd_engine(playerid, "\1");
@@ -17048,14 +16950,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has entered the shooting booth.", ReturnName(playerid, 0));
 			return 1;
 		}
- 		/*if (PlayerData[playerid][pTutorialStage] == 5 && IsPlayerInRangeOfPoint(playerid, 1.5, -228.8403, 1401.1831, 27.7656))
-		{
-		    for (new i = 0; i < 100; i ++) {
-		        SendClientMessage(playerid, -1, "");
-			}
-		    SetDefaultSpawn(playerid);
-		    Dialog_Show(playerid, TutorialConfirm, DIALOG_STYLE_MSGBOX, "Tutorial", "Would you like to view the server's main tutorial?", "Yes", "No");
-		}*/
 		if (IsPlayerInRangeOfPoint(playerid, 2.5, -204.5648, -1736.1201, 675.7687) && PlayerData[playerid][pHospitalInt] != -1)
 		{
 			SetPlayerPosEx(playerid, arrHospitalSpawns[PlayerData[playerid][pHospitalInt]][0], arrHospitalSpawns[PlayerData[playerid][pHospitalInt]][1], arrHospitalSpawns[PlayerData[playerid][pHospitalInt]][2]);
@@ -18307,11 +18201,6 @@ public OnPlayerEnterVehicle(playerid, vehicleid, ispassenger)
 
 public OnPlayerEnterCheckpoint(playerid)
 {
-	if (PlayerData[playerid][pTutorialStage])
-	{
-	    DisablePlayerCheckpoint(playerid);
-		return 1;
-	}
 	if(TruckingCheck[playerid] >= 1 && PlayerData[playerid][pUnloading] == -1)
 	{
 	    if (!IsPlayerInAnyVehicle(playerid))
@@ -18739,7 +18628,7 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
 		}
 		if (PlayerData[playerid][pCallLine] != INVALID_PLAYER_ID)
 		{
-		    SendClientMessage(PlayerData[playerid][pCallLine], COLOR_YELLOW, "[PHONE]:{FFFFFF} The line went dead...");
+		    SendClientMessage(PlayerData[playerid][pCallLine], COLOR_YELLOW, "[Phone]:{FFFFFF} The caller hanged up the phone.");
 		    CancelCall(playerid);
 		}
 		if (PlayerData[playerid][pCarryCrate] != -1)
@@ -18829,19 +18718,19 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
 			}
 			if (IsDoorVehicle(vehicleid) && !Inventory_HasItem(playerid, "Car License") && !PlayerData[playerid][pDrivingTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Alert]:{FFFFFF} You are operating a vehicle without the valid license. You might get in trouble.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a license to operate this vehicle.");
 			}
 			if (IsAMotorbike(vehicleid) && !Inventory_HasItem(playerid, "Motorbike License") && !PlayerData[playerid][pBikeTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Alert]:{FFFFFF} You are operating a motorbike without a valid Motorbike license. You might get in trouble.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a license to operate this motorcycle.");
 			}
 			if (IsAPlane(vehicleid) && !Inventory_HasItem(playerid, "Airplane License") && !PlayerData[playerid][pDrivingTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Alert]:{FFFFFF} You are operating an airplane without a valid Plane license. You might get in trouble.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a pilot's license.");
 			}
 			if (IsAHelicopter(vehicleid) && !Inventory_HasItem(playerid, "Helicopter License") && !PlayerData[playerid][pDrivingTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Alert]:{FFFFFF} You are operating a helicopter without a valid Helicopter license. You might get in trouble.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a helicopter license.");
 			}
 		}
 	    if (IsSpeedoVehicle(vehicleid) && !PlayerData[playerid][pDisableSpeedo]) for (new i = 34; i < 39; i ++) {
@@ -19736,14 +19625,14 @@ public OnPlayerCommandPerformed(playerid, cmdtext[], success)
 {
     if (!success)
     {
-       SendErrorMessage(playerid, "Unknown command. Please use /help to find the available commands or use /support.");
+       SendErrorMessage(playerid, "Unknown command. Please use /help for a list of commands or use /support.");
     }
     return 1;
 }
 
 public OnPlayerCommandReceived(playerid, cmdtext[])
 {
-	if (!SQL_IsLogged(playerid) || (PlayerData[playerid][pTutorial] > 0 || PlayerData[playerid][pTutorialStage] > 0 || PlayerData[playerid][pKilled] > 0 || PlayerData[playerid][pHospital] != -1))
+	if (!SQL_IsLogged(playerid) || (PlayerData[playerid][pKilled] > 0 || PlayerData[playerid][pHospital] != -1))
 	    return 0;
 
 	if(PlayerData[playerid][pMuted] && strfind(cmdtext, "/unmute", true) != 0)
@@ -20519,10 +20408,6 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 			}
 			default:
 			{
-			    if (PlayerData[playerid][pTutorialStage] == 3 && !strcmp(name, "Demo Soda", true))
-			    {
-			        SendClientMessage(playerid, COLOR_SERVER, "Click on the first option to use the selected item.");
-			    }
 		    	format(name, sizeof(name), "%s (%d)", name, InventoryData[playerid][index][invQuantity]);
 
 		    	if (Garbage_Nearest(playerid) != -1) {
@@ -20892,7 +20777,7 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 				SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
 
 			else if (playertextid == PlayerData[playerid][pTextdraws][79]) {
-			    SendClientMessage(playerid, -1, "This feature has been removed. If you'd like to delete a character contact an administrator.");
+			    SendClientMessage(playerid, -1, "If you would like to delete a character contact an administrator on the next steps.");
 				//Dialog_Show(playerid, DeleteChar, DIALOG_STYLE_MSGBOX, "Delete Character", "Warning: Are you sure you wish to delete character \"%s\"?\n\nYou will not be issued a refund for any lost property.", "Confirm", "Cancel", PlayerCharacters[playerid][PlayerData[playerid][pCharacter] - 1]);
 			}
 			else if (playertextid == PlayerData[playerid][pTextdraws][80]) {
@@ -20972,14 +20857,11 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 			    CancelSelectTextDraw(playerid);
 			    TogglePlayerControllable(playerid, 1);
 
-				//PlayerData[playerid][pTutorialStage] = 5;
 				for (new i = 0; i < 100; i ++) {
 		        SendClientMessage(playerid, -1, "");
 				}
 		    	SetDefaultSpawn(playerid);
 				Inventory_Add(playerid, "ID Card", 1581);
-		    	Dialog_Show(playerid, TutorialConfirm, DIALOG_STYLE_MSGBOX, "Tutorial", "Would you like to view the server's main tutorial?", "Yes", "No");
-			    /*PlayerData[playerid][pTutorialObject] = CreatePlayerObject(playerid, 1543, -226.4219, 1408.4594, 26.7734, 0.0, 0.0, 0.0);
 
 			    SetPlayerCheckpoint(playerid, -226.4219, 1408.4594, 27.7734, 0.5);
 			    SendClientMessage(playerid, COLOR_SERVER, "Please make your way towards the item and crouch (pressing 'C').");
@@ -20990,7 +20872,7 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 				SetPlayerInterior(playerid, 18);
 				SetPlayerVirtualWorld(playerid, (playerid + 2000));
 
-				SetCameraBehindPlayer(playerid);*/
+				SetCameraBehindPlayer(playerid);
 				ShowHungerTextdraw(playerid, 1);
 
 				PlayerData[playerid][pThirst] = 80;
@@ -21121,26 +21003,6 @@ Dialog:ShowOnly(playerid, response, listitem, inputtext[]) {
 	response = 0;
 	listitem = 0;
 	inputtext[0] = '\0';
-}
-Dialog:TutorialConfirm(playerid, response, listitem, inputtext[])
-{
-    PlayerData[playerid][pTutorialStage] = 0;
-
-	if (!response)
-	{
-	    PlayerData[playerid][pCreated] = 1;
-	    PlayerData[playerid][pTask] = 1;
-
-  		PlayerData[playerid][pTutorial] = 0;
-		PlayerData[playerid][pTutorialTime] = 0;
-
-		SendServerMessage(playerid, "Type /todo to view your current tasks to complete.");
-	}
-	else
-	{
-	    StartTutorial(playerid);
-	}
-	return 1;
 }
 
 Dialog:Billboards(playerid, response, listitem, inputtext[]) {
@@ -22627,92 +22489,6 @@ Dialog:TakeItems(playerid, response, listitem, inputtext[])
 	return 1;
 }
 
-Dialog:ServerPanel(playerid, response, listitem, inputtext[])
-{
-	if (response)
-	{
-	    switch (listitem)
-	    {
-			case 0:
-			{
-				if (g_ServerLocked)
-				{
-				    g_ServerLocked = false;
-
-				    SendRconCommand("password 0");
-				    SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s has unlocked the server.", ReturnName(playerid, 0));
-				}
-				else Dialog_Show(playerid, LockServer, DIALOG_STYLE_INPUT, "Lock Server", "Please enter the specified password below to lock the server with:", "Lock", "Back");
-			}
-			case 1:
-			    Dialog_Show(playerid, SetHostname, DIALOG_STYLE_INPUT, "Set Hostname", "Please enter the new server hostname below:", "Submit", "Back");
-
-			case 2:
-			    Dialog_Show(playerid, ExecuteQuery, DIALOG_STYLE_INPUT, "Execute Query", "Please specify the MySQL query to execute below:", "Execute", "Back");
-	    }
-	}
-	return 1;
-}
-
-Dialog:LockServer(playerid, response, listitem, inputtext[])
-{
-	if (response)
-	{
-	    if (isnull(inputtext) || !strcmp(inputtext, "0"))
-	        return Dialog_Show(playerid, LockServer, DIALOG_STYLE_INPUT, "Lock Server", "Please enter the specified password below to lock the server with:", "Lock", "Back");
-
-		if (strlen(inputtext) > 32)
-		    return Dialog_Show(playerid, LockServer, DIALOG_STYLE_INPUT, "Lock Server", "Error: Please type a password shorter than 32 characters.\n\nPlease enter the specified password below to lock the server with:", "Lock", "Back");
-
-		static
-		    str[48];
-
-	    format(str, sizeof(str), "password %s", inputtext);
-		g_ServerLocked = true;
-
-		SendRconCommand(str);
-	    SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s has locked the server (password: %s).", ReturnName(playerid, 0), inputtext);
-	}
-	else cmd_panel(playerid, "\1");
-	return 1;
-}
-
-Dialog:SetHostname(playerid, response, listitem, inputtext[])
-{
-	if (response)
-	{
-	    if (isnull(inputtext))
-	        return Dialog_Show(playerid, SetHostname, DIALOG_STYLE_INPUT, "Set Hostname", "Please enter the new server hostname below:", "Submit", "Back");
-
-		static
-		    str[128];
-
-	    format(str, sizeof(str), "hostname %s", inputtext);
-
-		SendRconCommand(str);
-	    SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s has set the hostname to \"%s\".", ReturnName(playerid, 0), inputtext);
-	}
-	else cmd_panel(playerid, "\1");
-	return 1;
-}
-
-Dialog:ExecuteQuery(playerid, response, listitem, inputtext[])
-{
-	if (response)
-	{
-        if (isnull(inputtext))
-            return Dialog_Show(playerid, ExecuteQuery, DIALOG_STYLE_INPUT, "Execute Query", "Please specify the MySQL query to execute below:", "Execute", "Back");
-
-        if (strfind(inputtext, "DELETE", true) != -1 || strfind(inputtext, "DROP", true) != -1)
-            return Dialog_Show(playerid, ExecuteQuery, DIALOG_STYLE_INPUT, "Execute Query", "Error: You can't execute \"DROP\" or \"DELETE\" queries.\n\nPlease specify the MySQL query to execute below:", "Execute", "Back");
-
-		PlayerData[playerid][pExecute] = 1;
-		mysql_tquery(g_iHandle, inputtext, "OnQueryExecute", "ds", playerid, inputtext);
-	}
-	else cmd_panel(playerid, "\1");
-	return 1;
-}
-
 Dialog:TuneVehicle(playerid, response, listitem, inputtext[])
 {
 	new vehicleid = GetPlayerVehicleID(playerid);
@@ -23106,23 +22882,6 @@ Dialog:Backpack(playerid, response, listitem, inputtext[])
 			format(string, sizeof(string), "%s (Quantity: %d)", BackpackItems[id][bItemName], BackpackItems[id][bItemQuantity]);
 	        Dialog_Show(playerid, BackpackOptions, DIALOG_STYLE_LIST, string, "Take Item\nStore Item\nDrop Item", "Select", "Back");
 		}
-	}
-	return 1;
-}
-
-Dialog:Tutorial(playerid, response, listitem, inputtext[])
-{
-	if (PlayerData[playerid][pTutorialStage] == 3)
-	{
-		PlayerData[playerid][pTutorialStage] = 4;
-		SendClientMessage(playerid, COLOR_SERVER, "Press 'Y' and select the soda bottle and drop it.");
-	}
-	else if (PlayerData[playerid][pTutorialStage] == 4)
-	{
-		PlayerData[playerid][pTutorialStage] = 5;
-
-		SendClientMessage(playerid, COLOR_SERVER, "Please make your way towards the exit and press 'F'.");
-		SetPlayerCheckpoint(playerid, -228.8403, 1401.1831, 27.7656, 1.0);
 	}
 	return 1;
 }
@@ -25658,7 +25417,7 @@ Dialog:FAQ(playerid, response, listitem, inputtext[])
 		{
 		    case 0:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can enter and exit a building by pressing the {FFFF00}'F'{FFFFFF} key.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can enter and exit a building by pressing the {FFFF00}'F'{FFFFFF} key.", "Okay", "Back");
 			}
             case 1:
 		    {
@@ -25666,35 +25425,35 @@ Dialog:FAQ(playerid, response, listitem, inputtext[])
 			}
 			case 2:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can pickup dropped items by pressing the {FFFF00}'N'{FFFFFF} key.\nYou must be crouched and close to the item.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can pickup dropped items by pressing the {FFFF00}'N'{FFFFFF} key.\nYou must be crouched and close to the item.", "Okay", "Back");
 			}
 			case 3:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}The icons on the right side of your screen are as follows:\n\n{FFFF00}Pizza Icon:{FFFFFF} This icon represents hunger. The number beside is the percentage of hunger.\n{FFFF00}Bottle Icon:{FFFFFF} This icon represents thirst. The number beside is the percentage of thirst.\n\nIf you have an armored vest, it will also show along with the icons.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}The icons on the right side of your screen are as follows:\n\n{FFFF00}Pizza Icon:{FFFFFF} This icon represents hunger. The number beside is the percentage of hunger.\n{FFFF00}Bottle Icon:{FFFFFF} This icon represents thirst. The number beside is the percentage of thirst.\n\nIf you have an armored vest, it will also show along with the icons.", "Okay", "Back");
 			}
 			case 4:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can refill your hunger by cooking food and eating it, or from a {FFFF00}Fast Food{FFFFFF} business.\nTo cook food, type {FFFF00}/cook{FFFFFF}. You can purchase frozen food at any {FFFF00}Retail Store{FFFFFF}.\n\nTo refill your thirst, you can purchase drinks from any {FFFF00}Retail Store{FFFFFF}.\nAdditionally, you can also purchase beverages at a fast food business.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can refill your hunger by cooking food and eating it, or from a {FFFF00}Fast Food{FFFFFF} business.\nTo cook food, type {FFFF00}/cook{FFFFFF}. You can purchase frozen food at any {FFFF00}Retail Store{FFFFFF}.\n\nTo refill your thirst, you can purchase drinks from any {FFFF00}Retail Store{FFFFFF}.\nAdditionally, you can also purchase beverages at a fast food business.", "Okay", "Back");
 			}
 			case 5:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can search for certain areas around the map using a {FFFF00}GPS System{FFFFFF}.\nYou can purchase a GPS System at any {FFFF00}Retail Store{FFFFFF} around the map.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can search for certain areas around the map using a {FFFF00}GPS System{FFFFFF}.\nYou can purchase a GPS System at any {FFFF00}Retail Store{FFFFFF} around the map.", "Okay", "Back");
 			}
 			case 6:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can type {FFFF00}/disablecp{FFFFFF} to stop your current job.\nIf you are loading crates into a truck, use {FFFF00}/stoploading{FFFFFF} to stop loading.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You can type {FFFF00}/disablecp{FFFFFF} to stop your current job.\nIf you are loading crates into a truck, use {FFFF00}/stoploading{FFFFFF} to stop loading.", "Okay", "Back");
 			}
 			case 7:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You must select a weapon from your inventory and press {FFFF00}Use Item.\n{FFFFFF}Once you are holding a weapon, you must use a magazine to load it.\n\nYou can purchase magazines at any {FFFF00}Weapon Shop for your weapon.\n{FFFFFF}You can also press {FFFF00}'N'{FFFFFF} to put away the weapon you are holding.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}You must select a weapon from your inventory and press {FFFF00}Use Item.\n{FFFFFF}Once you are holding a weapon, you must use a magazine to load it.\n\nYou can purchase magazines at any {FFFF00}Weapon Shop for your weapon.\n{FFFFFF}You can also press {FFFF00}'N'{FFFFFF} to put away the weapon you are holding.", "Okay", "Back");
 			}
 			case 8:
 		    {
-		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}Any furniture that you've purchased will appear inside your inventory.\nPress {FFFF00}'Y'{FFFFFF}, select the furniture item and press {FFFF00}Use Item{FFFFFF} to deploy it.\n\nIf you wish to edit existing furniture, type {FFFF00}/furniture{FFFFFF} inside your house.\nSimply select the item of choice to edit the position or destroy the item.", "OK", "Back");
+		        Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}Any furniture that you've purchased will appear inside your inventory.\nPress {FFFF00}'Y'{FFFFFF}, select the furniture item and press {FFFF00}Use Item{FFFFFF} to deploy it.\n\nIf you wish to edit existing furniture, type {FFFF00}/furniture{FFFFFF} inside your house.\nSimply select the item of choice to edit the position or destroy the item.", "Okay", "Back");
 			}
 			case 9:
 			{
-			    Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}The {FFFF00}'F'{FFFFFF} key will allow you to interact with a lot of things in the server.\nThese things include vendors, weapon and drug crates, gates and entrances.\n\nTo enter a house or business, simply press the {FFFF00}'F'{FFFFFF} key near the door.\nYou can open your inventory with {FFFF00}'Y'{FFFFFF} and pickup items using {FFFF00}'N'{FFFFFF}.", "OK", "Back");
+			    Dialog_Show(playerid, FAQ1, DIALOG_STYLE_MSGBOX, inputtext, "{FFFFFF}The {FFFF00}'F'{FFFFFF} key will allow you to interact with a lot of things in the server.\nThese things include vendors, weapon and drug crates, gates and entrances.\n\nTo enter a house or business, simply press the {FFFF00}'F'{FFFFFF} key near the door.\nYou can open your inventory with {FFFF00}'Y'{FFFFFF} and pickup items using {FFFF00}'N'{FFFFFF}.", "Okay", "Back");
 			}
 		}
 	}
@@ -25741,21 +25500,10 @@ Dialog:Inventory(playerid, response, listitem, inputtext[])
 	    {
 	        case 0:
 	        {
-	            if (!strcmp(string, "Demo Soda") && PlayerData[playerid][pTutorialStage] == 3)
-			    {
-        			PlayerData[playerid][pThirst] = 100;
-        			Dialog_Show(playerid, Tutorial, DIALOG_STYLE_MSGBOX, "Tutorial Message", "You have learned how to pickup items and use them respectfully.\nYou have just picked up a soda bottle and used it to refill your thirst.\n\nThe hunger and thirst icons are displayed on the right side of your screen.\nIf your hunger or thirst reaches zero percent, your player will start losing energy.", "Continue", "");
-			    }
-			    else
-			    {
-		            CallLocalFunction("OnPlayerUseItem", "dds", playerid, itemid, string);
-				}
+		        CallLocalFunction("OnPlayerUseItem", "dds", playerid, itemid, string);
 	        }
 	        case 1:
 	        {
-	            if (!strcmp(string, "Demo Soda"))
-	                return 0;
-
 				PlayerData[playerid][pInventoryItem] = itemid;
 				Dialog_Show(playerid, GiveItem, DIALOG_STYLE_INPUT, "Give Item", "Please enter the name or the ID of the player:", "Submit", "Cancel");
 	        }
@@ -25763,15 +25511,6 @@ Dialog:Inventory(playerid, response, listitem, inputtext[])
 	        {
 	            new id = -1;
 
-	            if (!strcmp(string, "Demo Soda") && PlayerData[playerid][pTutorialStage] != 4)
-	                return 0;
-
-				if (PlayerData[playerid][pTutorialStage] == 4)
-				{
-					Inventory_Remove(playerid, "Demo Soda");
-					Dialog_Show(playerid, Tutorial, DIALOG_STYLE_MSGBOX, "Tutorial Message", "You have dropped the soda bottle. You can pickup dropped items using 'N'.\nYou can also give or trade items from your inventory to other players.\n\nYou can also store items into your house's storage or a vehicle's trunk.\nYour character's inventory can only contain up to %d unique items at once.", "Next", "", MAX_INVENTORY);
-					return 1;
-				}
 	            if (IsPlayerInAnyVehicle(playerid) || !IsPlayerSpawned(playerid))
 	                return SendErrorMessage(playerid, "You can't drop items right now.");
 
@@ -27736,23 +27475,22 @@ Dialog:LoginScreen(playerid, response, listitem, inputtext[])
 	return 1;
 }
 
-Dialog:LoginIntoChar(playerid, response, listitems, inputtext[])
+Dialog:LoginIntoChar(playerid, response, listitem, inputtext[])
 {
-	if(response)
+	if(!response)
 	{
-		switch(response)
+		ShowCharacterMenu(playerid);
+	}
+	else
+	{
+		switch(listitem)
 		{
-			case 1: SelectCharacter(playerid, 1);
-			case 2: SelectCharacter(playerid, 2);
-			case 3: SelectCharacter(playerid, 3);
+			case 0: SelectCharacter(playerid, 1);
+			case 1: SelectCharacter(playerid, 2);
+			case 2: SelectCharacter(playerid, 3);
 		}
 	}
-	else if(!response)
-	{
-		new string[132];
-		format(string, sizeof(string), "%s\n%s\n%s", (!PlayerCharacters[playerid][0][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][0]), (!PlayerCharacters[playerid][1][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][1]), (!PlayerCharacters[playerid][2][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][2]));
-		Dialog_Show(playerid, LoginIntoChar, DIALOG_STYLE_LIST, "Select Character", string, "Select", "");
-	}
+	return 1;
 }
 
 Dialog:DeleteChar(playerid, response, listitem, inputtext[])
@@ -27760,7 +27498,7 @@ Dialog:DeleteChar(playerid, response, listitem, inputtext[])
 	if (response)
 	{
 		ShowCharacterMenu(playerid);
-		SendClientMessage(playerid, -1, "This feature has been removed. If you would like to delete a character contact an administrator.");
+		SendClientMessage(playerid, -1, "If you would like to delete a character contact an administrator on the next steps.");
 	    /*new query[128];
 
 	    format(query, sizeof(query), "DELETE FROM `characters` WHERE `Username` = '%s' AND `chara` = '%s'", PlayerData[playerid][pUsername], PlayerCharacters[playerid][PlayerData[playerid][pCharacter] - 1]);
@@ -27778,7 +27516,7 @@ Dialog:DeleteCharacter(playerid, response, listitem, inputtext[])
 {
 	if (response)
 	{
-		SendClientMessage(playerid, -1, "This feature has been removed. If you would like to delete a character contact an administrator.");
+		SendClientMessage(playerid, -1, "If you would like to delete a character contact an administrator on the next steps.");
 		return 1;
 	    /*new query[128];
 
@@ -28077,12 +27815,11 @@ CMD:playpool(playerid, params[])
 
 CMD:poolhelp(playerid)
 {
-	SendClientMessage(playerid, COLOR_WHITE, "|=================================================================================|");
-	SendClientMessage(playerid, COLOR_NEWBLUE, "[POOL]: {FFFFFF}Press F to chalk your pool cue (just for RP purposes, has no effect on the game)");
-	SendClientMessage(playerid, COLOR_NEWBLUE, "[POOL]: {FFFFFF}Press LMB near the white ball to begin aiming. Also press LMB to stop aiming.");
-	SendClientMessage(playerid, COLOR_NEWBLUE, "[POOL]: {FFFFFF}Hold RMB to begin shooting.");
-	SendClientMessage(playerid, COLOR_NEWBLUE, "[POOL]: {FFFFFF}Press SHIFT while aiming to change your camera.");
-	SendClientMessage(playerid, COLOR_NEWBLUE, "[POOL]: {FFFFFF}Type /resetpool to reset the balls. DO NOT abuse this command.");
+	SendClientMessage(playerid, COLOR_NEWBLUE, "[Pool]: {FFFFFF}Press F to chalk your pool cue (just for RP purposes, has no effect on the game)");
+	SendClientMessage(playerid, COLOR_NEWBLUE, "[Pool] {FFFFFF}Press LMB near the white ball to begin aiming. Also press LMB to stop aiming.");
+	SendClientMessage(playerid, COLOR_NEWBLUE, "[Pool]: {FFFFFF}Hold RMB to begin shooting.");
+	SendClientMessage(playerid, COLOR_NEWBLUE, "[Pool]: {FFFFFF}Press SHIFT while aiming to change your camera.");
+	SendClientMessage(playerid, COLOR_NEWBLUE, "[Pool]: {FFFFFF}Type /resetpool to reset the balls.");
 	return 1;
 }
 
@@ -28092,7 +27829,7 @@ CMD:resetpool(playerid, params[])
 	if(!IsPlayerInRangeOfPoint(playerid, 10.0, 505.1944,-83.9310,998.9609)) return SendErrorMessage(playerid, "You must be at the pool table to use this command.");
 	if(sscanf(params, "d", initv)) return SendSyntaxMessage(playerid, "/resetpool <init> 1 to keep playing, 0 to reset the entire game (debugging purposes)");
 	RespawnPoolBalls(initv);
-	SendNearbyMessage(playerid, 30.0, COLOR_GREY, "~ %s has reset the pool game. (%d)", ReturnName(playerid, 0), initv);
+	SendNearbyMessage(playerid, 30.0, COLOR_GREY, "* %s has reset the pool game. (%d)", ReturnName(playerid, 0), initv);
 	return 1;
 }
 
@@ -28145,7 +27882,6 @@ CMD:fixcar(playerid, params[])
 	return 1;
 }
 
-
 CMD:elm(playerid, params[])
 {
 
@@ -28178,13 +27914,6 @@ CMD:elm(playerid, params[])
 	return 1;
 }
 
-CMD:starttutorial(playerid, params[])
-{
-	if(PlayerData[playerid][pAdmin] >= 4)
-		StartTutorial(playerid);
-	return 1;
-}
-
 CMD:addvehcomp(playerid, params[])
 {
 	if(PlayerData[playerid][pAdmin] >= 4)
@@ -28205,6 +27934,7 @@ CMD:x(playerid, params[])
 	}
 	else return SendErrorMessage(playerid, "You're not authorized.");
 }
+
 COMMAND:y(playerid, params[])
 {
 	new Float:x, Float:y, Float:z, Float:npos;
@@ -28217,6 +27947,7 @@ COMMAND:y(playerid, params[])
 	}
 	else return SendErrorMessage(playerid, "You're not authorized.");
 }
+
 COMMAND:z(playerid, params[])
 {
 	new Float:x, Float:y, Float:z, Float:npos;
@@ -28307,6 +28038,7 @@ CMD:aremovecall(playerid, params[])
 	return 1;
 }
 
+/*
 CMD:rules(playerid, params[])
 {
 		new string [2048];
@@ -28330,6 +28062,13 @@ CMD:rules(playerid, params[])
         SendClientMessage(playerid, -1, "{FF0000}[RULES]: {FFFFFF}By clicking accept, you agree to abide the server as well as additional rules on forums");
         ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Server Rules", string, "Accept", "");
         return 1;
+}
+*/
+
+CMD:rules(playerid, params[])
+{
+	ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Server Rules", "Find the server rules on our UCP "SERVER_URL"", "Accept", "");
+	return 1;
 }
 
 /*CMD:b(playerid, params[])
@@ -28473,8 +28212,6 @@ CMD:alog(playerid, params[])
 	}
 	return 1;
 }*/
-
-
 
 CMD:unholster(playerid, params[])
 {
@@ -28643,28 +28380,27 @@ CMD:s(playerid, params[])
 	return 1;
 }
 
-CMD:pintercom(playerid, params[])
+CMD:pilotm(playerid, params[])
 {
 
 	if (isnull(params))
-	    return SendSyntaxMessage(playerid, "/(pintercom) [plane intercom]");
+	    return SendSyntaxMessage(playerid, "/pilotm [plane megaphone]");
 
     if (!IsAPlane(GetPlayerVehicleID(playerid)))
 	    return SendErrorMessage(playerid, "You must be in a plane in order to use the intercom.");
 
 	if (strlen(params) > 64) {
-	    SendNearbyMessage(playerid, 30.0, COLOR_INTERCOM, "[PLANE INTERCOM] %s says: %.64s", ReturnName(playerid, 2), params);
-	    SendNearbyMessage(playerid, 30.0, COLOR_INTERCOM, "...%s!", params[64]);
+	    SendNearbyMessage(playerid, 30.0, COLOR_INTERCOM, "[Pilot Megaphone] %s says: %.64s", ReturnName(playerid, 2), params);
+	    SendNearbyMessage(playerid, 30.0, COLOR_INTERCOM, "...%s", params[64]);
 	}
 	else {
-	    SendNearbyMessage(playerid, 30.0, COLOR_INTERCOM, "[PLANE INTERCOM] %s says: %s!", ReturnName(playerid, 2), params);
+	    SendNearbyMessage(playerid, 30.0, COLOR_INTERCOM, "[Pilot Megaphone] %s says: %s", ReturnName(playerid, 2), params);
 	}
 	return 1;
 }
 
 CMD:l(playerid, params[])
 {
-
 
 	if (isnull(params))
 	    return SendSyntaxMessage(playerid, "/(l)ow [low text]");
@@ -28681,6 +28417,7 @@ CMD:l(playerid, params[])
 	return 1;
 }
 
+/*
 CMD:kill(playerid, params[])
 {
 	if (PlayerData[playerid][pHospital] != -1 || PlayerData[playerid][pCuffed] || PlayerData[playerid][pJailTime] > 0 || PlayerData[playerid][pDrivingTest] || PlayerData[playerid][pBikeTest] || PlayerData[playerid][pTruckTest])
@@ -28689,6 +28426,7 @@ CMD:kill(playerid, params[])
 	SetPlayerHealth(playerid, 0.0);
 	return 1;
 }
+*/
 
 CMD:ooc(playerid, params[])
 {
@@ -28878,7 +28616,7 @@ CMD:help(playerid, params[])
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/boombox, /disablecp, /shakehand, /showlicenses, /frisk, /toghud, /passwep, /setradio, /picklock, /resetvw.");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/buyfstyle, /admins, /bomb, /plantbomb, /detonate, /mywarnings, /holster, /unholster");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/myclothes, /changeclothes, /buyclothes, /myaccent, /tabbed.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/ooc, /b, /w, /s, /f, /l, /pintercom, /lcc (local chat clear).");
+	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/ooc, /b, /w, /s, /f, /l, /pilotm, /lcc (local chat clear).");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/phone, /call, /pickup, /hangup, /text.");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/r, /channel, /bank, /atm, /registercard");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Sections]: {FFFFFF}/help, /factionhelp, /jobhelp, /animhelp, /premiumhelp, /propertyhelp, /carhelp");
@@ -28887,8 +28625,8 @@ CMD:help(playerid, params[])
 
 CMD:howto(playerid, params[])
 {
-    SendClientMessage(playerid, COLOR_GREEN, "Server Guide: {FFFFFF}Crouch (press 'c') and press {08B200}'N'{FFFFFF} to pickup items.");
-    SendClientMessage(playerid, COLOR_GREEN, "Server Guide: {FFFFFF}Press {08B200}'F'{FFFFFF} as a shortcut as /enter or /exit.");
+    SendClientMessage(playerid, COLOR_GREEN, "[Guide]: {FFFFFF}Crouch (press 'c') and press {08B200}'N'{FFFFFF} to pickup items.");
+    SendClientMessage(playerid, COLOR_GREEN, "[Guide]: {FFFFFF}Press {08B200}'F'{FFFFFF} as a shortcut as /enter or /exit.");
 	return 1;
 }
 
@@ -28953,13 +28691,12 @@ CMD:factionhelp(playerid, params[])
 
 CMD:jobhelp(playerid, params[])
 {
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Job]:{FFFFFF} /quitjob");
 	switch(PlayerData[playerid][pJob])
 	{
 		case 0: SendErrorMessage(playerid, "You are unemployed at the moment.");
 		case 1:
 		{
-			SendClientMessage(playerid, COLOR_LIGHTRED, "[Courier]:{FFFFFF} Use /shipments or /loadcrate to begin. (HINT: You get more money from shipments)");
+			SendClientMessage(playerid, COLOR_LIGHTRED, "[Courier]:{FFFFFF} Use /shipments or /loadcrate to begin. (You get more money from shipments)");
 			SendClientMessage(playerid, COLOR_LIGHTRED, "[Courier]:{FFFFFF} /shipments /loadcrate, /stoploading, /unload");
 		}
 		case 2: SendClientMessage(playerid, COLOR_LIGHTRED, "[Mechanic]:{FFFFFF} /repair, /nitrous.");
@@ -29411,17 +29148,17 @@ CMD:omakeadmin(playerid, params[])
 	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
 
 	if (sscanf(params, "sd", charname, level))
-		return SendSyntaxMessage(playerid, "/omakeadmin [name] [level]");
+		return SendSyntaxMessage(playerid, "/omakeadmin [master account] [level]");
 
 	if (level < 0 || level > 8)
 	    return SendErrorMessage(playerid, "Invalid admin level. Levels range from 0 to 8.");
 
-	format(query, sizeof(query), "SELECT * FROM `characters` WHERE `chara` = '%s'", charname);
+	format(query, sizeof(query), "SELECT * FROM `accounts` WHERE `username` = '%s'", charname);
 	result = mysql_query(g_iHandle, query);
 	rows = cache_get_row_count();
- 	if(rows != 1) return SendErrorMessage(playerid, "Character name does not exist.");
+ 	if(rows != 1) return SendErrorMessage(playerid, "Master account does not exist. (Use ''/username'' to help you find their master account)");
 
-	format(query, sizeof(query), "UPDATE `characters` SET `Admin` = '%d' WHERE `chara` = '%s'", level, charname);
+	format(query, sizeof(query), "UPDATE `accounts` SET `Admin` = '%d' WHERE `username` = '%s'", level, charname);
 	result = mysql_query(g_iHandle, query);
 
 	SendAdminAction(playerid, "You have set %s's admin rank to: %d (database only, if they are online will have no effect)", charname, level);
@@ -29444,17 +29181,17 @@ CMD:omakehelper(playerid, params[])
 	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
 
 	if (sscanf(params, "s[40]d", charname, level))
-		return SendSyntaxMessage(playerid, "/omakehelper [name] [level] (database only, if they are online will have no effect)");
+		return SendSyntaxMessage(playerid, "/omakehelper [master account] [level] (database only, if they are online will have no effect)");
 
 	if (level < 0 || level > 3)
 	    return SendErrorMessage(playerid, "Invalid helper level. Levels range from 0 to 3.");
 
-	format(query, sizeof(query), "SELECT * FROM `characters` WHERE `chara` = '%s'", charname);
+	format(query, sizeof(query), "SELECT * FROM `accounts` WHERE `username` = '%s'", charname);
 	result = mysql_query(g_iHandle, query);
 	rows = cache_get_row_count();
- 	if(rows != 1) return SendErrorMessage(playerid, "Character name does not exist.");
+ 	if(rows != 1) return SendErrorMessage(playerid, "Master account does not exist. (Use ''/username'' to help you find their master account)");
 
-	format(query, sizeof(query), "UPDATE `characters` SET `Helper` = '%d' WHERE `chara` = '%s'", level, charname);
+	format(query, sizeof(query), "UPDATE `accounts` SET `Helper` = '%d' WHERE `username` = '%s'", level, charname);
 	result = mysql_query(g_iHandle, query);
 
 	SendHelperAlert(COLOR_NEWGREEN, "[Helper] %s has offline set %s's helper rank to: %d", ReturnName(playerid, 0), charname, level);
@@ -29808,7 +29545,7 @@ CMD:makeadmin(playerid, params[])
 	    SendAdminAction(userid, "%s has demoted you. Your new admin level is [%d].", ReturnName(playerid, 0), level);
 	}
 	new query[128];
-	format(query, sizeof(query), "UPDATE `characters` SET Admin = %i WHERE ID = %i", level, PlayerData[userid][pID]);
+	format(query, sizeof(query), "UPDATE `accounts` SET Admin = %i WHERE username = %s", level, PlayerData[userid][pUsername]);
 	mysql_tquery(g_iHandle, query);
 
 	PlayerData[userid][pAdmin] = level;
@@ -29845,7 +29582,7 @@ CMD:makehelper(playerid, params[])
 	}
 
 	new query[128];
-	format(query, sizeof(query), "UPDATE `characters` SET Helper = %i WHERE ID = %i", level, PlayerData[userid][pID]);
+	format(query, sizeof(query), "UPDATE `accounts` SET Helper = %i WHERE username = %s", level, PlayerData[userid][pUsername]);
 	mysql_tquery(g_iHandle, query);
 
 	PlayerData[userid][pHelper] = level;
@@ -29984,7 +29721,7 @@ CMD:ahelp(playerid, params[])
 	}
 	if (PlayerData[playerid][pAdmin] >= 7)
 	{
-	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Leader]:{FFFFFF} /panel.");
+	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Server Leader]:{FFFFFF} nothing.");
 	}
 	if(PlayerData[playerid][pFactionMod])
 	{
@@ -30028,7 +29765,7 @@ CMD:dynamichelp(playerid, params[])
 CMD:mywarnings(playerid, params[])
 {
 	new string[512];
-	SendClientMessage(playerid, COLOR_ORANGE, "----------WARNINGS----------");
+	SendClientMessage(playerid, COLOR_ANTICHEAT, "----------WARNINGS----------");
 	format(string, sizeof(string), "Warning[1]: %s", Player_Warn1(playerid));
 	SendClientMessage(playerid, COLOR_WHITE, string);
 	format(string, sizeof(string), "Warning[2]: %s", Player_Warn2(playerid));
@@ -30396,15 +30133,6 @@ CMD:spectate(playerid, params[])
 	return 1;
 }
 
-CMD:igctnl(playerid, params[])
-{
-	if (g_ServerLocked)
-		Dialog_Show(playerid, ServerPanel, DIALOG_STYLE_LIST, "Server Panel", "Unlock Server\nSet Hostname\nExecute Query", "Select", "Cancel");
-
-	else Dialog_Show(playerid, ServerPanel, DIALOG_STYLE_LIST, "Server Panel", "Lock Server\nSet Hostname\nExecute Query", "Select", "Cancel");
-	return 1;
-}
-
 CMD:ajail(playerid, params[])
 {
 	static
@@ -30571,9 +30299,9 @@ CMD:asshelp(playerid, params[])
 	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
 
 	SendClientMessage(playerid, COLOR_CLIENT, "[Support Ticket Help]");
-	SendClientMessage(playerid, COLOR_CLIENT,"/assist ID - Accepting a support ticket.");
+	SendClientMessage(playerid, COLOR_CLIENT,"/assist - Accepting a support ticket.");
 	SendClientMessage(playerid, COLOR_CLIENT,"/supports - Checking all opened support tickets.");
-	SendClientMessage(playerid, COLOR_CLIENT,"/ac - Talking in the assistance channel.");
+	SendClientMessage(playerid, COLOR_CLIENT,"/ask - Chat with the person you are assisting.");
 	SendClientMessage(playerid, COLOR_CLIENT,"/closesupport - Ending the currenct assistance.");
 	SendClientMessage(playerid, COLOR_CLIENT,"====================================================================================================");
 	return 1;
@@ -30618,11 +30346,11 @@ CMD:assist(playerid, params[])
 
 			PlayerData[playerid][pPlayersAssisted]++;
 
-			format(string, sizeof(string), "Staff Member %s is now helping you. Please use /ac to discuss your matter.", ReturnName(playerid, 0), playerid);
-			SendClientMessage(id, COLOR_NEWGREEN, string);
-			format(string, sizeof(string), "[STAFF]: %s is now assisting %s.", ReturnName(playerid, 0), ReturnName(id, 0));
+			format(string, sizeof(string), "Staff Member %s is now helping you. Please use /ask to chat with the staff member.", ReturnName(playerid, 0), playerid);
+			SendClientMessage(id, COLOR_ANTICHEAT, string);
+			format(string, sizeof(string), "[Staff]: %s is now assisting %s.", ReturnName(playerid, 0), ReturnName(id, 0));
 			SendHelperAlert(COLOR_NEWGREEN, string);
-			format(string, sizeof(string), "You are now helping %s. Please use /ac to disuss their matter. (Your Total Assists: %d)", ReturnName(id, 0), PlayerData[playerid][pPlayersAssisted]);
+			format(string, sizeof(string), "You are now helping %s. Use /ask to chat with them. (Your Total Assists: %d)", ReturnName(id, 0), PlayerData[playerid][pPlayersAssisted]);
 			SendClientMessage(playerid, COLOR_NEWGREEN, string);
    		}
 	}
@@ -30646,25 +30374,25 @@ CMD:endsupport(playerid, params[])
 			Assisted[playerid] = -1;
 			//SetPlayerHealth(playerid, 99.00);
 			//SetPlayerPos(playerid, PlayerData[playerid][pPos][0], PlayerData[playerid][pPos][1], PlayerData[playerid][pPos][2]);
-			format(string, sizeof(string), "[STAFF]: %s has concluded %s's support ticket. [reason: %s]", ReturnName(playerid, 0), ReturnName(id, 0), reason);
+			format(string, sizeof(string), "[Staff]: %s has concluded %s's support ticket. [reason: %s]", ReturnName(playerid, 0), ReturnName(id, 0), reason);
 			SendHelperAlert(COLOR_NEWGREEN, string);
 		}
 	}
 	return 1;
 }
 
-CMD:ac(playerid, params[])
+CMD:ask(playerid, params[])
 {
 	if (PlayerData[playerid][pAdmin] < 1 && PlayerData[playerid][pHelper] < 1 && Assisted[playerid] == -1)
-		return SendErrorMessage(playerid, "You are not currently being assisted.");
+		return SendErrorMessage(playerid, "You currently don't have a support ticket opened.");
 	{
 		new msg[128], string[150];
 		if(Assisted[playerid] == -1) return SendClientMessage(playerid, COLOR_WHITE, "You are not assisting anybody at the moment.");
-		if(sscanf(params, "s[128]", msg)) return SendSyntaxMessage(playerid, "/ac [text]");
+		if(sscanf(params, "s[128]", msg)) return SendSyntaxMessage(playerid, "/ask [text]");
 		{
-			format(string, sizeof(string), "[Assistance] %s (%d): %s", ReturnName(playerid, 0), playerid, msg);
-			SendClientMessage(playerid, COLOR_NEWGREEN, string);
-			SendClientMessage(Assisted[playerid], COLOR_NEWGREEN, string);
+			format(string, sizeof(string), "[Ask] %s (%d): %s", ReturnName(playerid, 0), playerid, msg);
+			SendClientMessage(playerid, COLOR_CLIENT, string);
+			SendClientMessage(Assisted[playerid], COLOR_CLIENT, string);
 		}
 	}
 	return 1;
@@ -32019,7 +31747,7 @@ CMD:unban(playerid, params[])
 	if (isnull(params) || strlen(params) > 24)
 	{
 		SendSyntaxMessage(playerid, "/unban [username]");
-		SendClientMessage(playerid, COLOR_LIGHTRED, "[NOTE]:{FFFFFF} Type \"/username\" to resolve the username from a character's name.");
+		SendClientMessage(playerid, COLOR_LIGHTRED, "[NOTE]:{FFFFFF} Type \"/username\" to resolve the master account from a character's name.");
 	}
 	else
 	{
@@ -36169,7 +35897,7 @@ CMD:editjob(playerid, params[])
 	return 1;
 }
 
-CMD:quitjob(playerid, params[])
+CMD:debug_leavejob(playerid, params[])
 {
 	if (PlayerData[playerid][pJob] != 0)
 	{
@@ -36231,7 +35959,7 @@ CMD:quitjob(playerid, params[])
 	return 1;
 }
 
-CMD:takejob(playerid, params[])
+CMD:debug_joinjob(playerid, params[])
 {
 	static
 	    id = -1;
@@ -36245,7 +35973,7 @@ CMD:takejob(playerid, params[])
 
 	    return SendServerMessage(playerid, "You are now a %s - type \"/jobhelp\" for job commands.", Job_GetName(JobData[id][jobType]));
 	}
-    SendErrorMessage(playerid, "You are not in range of any job pickup.");
+    SendErrorMessage(playerid, "You are not in range of any job pickups.");
 	return 1;
 }
 
@@ -36589,8 +36317,8 @@ CMD:pickup(playerid, params[])
 	SetPlayerAttachedObject(playerid, 4, 330 , 6);//gives the phone in the hand
     SetPlayerSpecialAction(playerid,SPECIAL_ACTION_USECELLPHONE);//does the animation
 
-	SendClientMessage(playerid, COLOR_YELLOW, "[SERVER]:{FFFFFF} You have answered the call.");
-	SendClientMessage(targetid, COLOR_YELLOW, "[SERVER]:{FFFFFF} The other line has accepted the call.");
+	SendClientMessage(playerid, COLOR_YELLOW, "[Server]:{FFFFFF} You have answered the call.");
+	SendClientMessage(targetid, COLOR_YELLOW, "[Server]:{FFFFFF} The other line has accepted the call.");
 
 	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has accepted the incoming call.", ReturnName(playerid, 0));
 	return 1;
@@ -36635,8 +36363,8 @@ CMD:hangup(playerid, params[])
 
 	if (PlayerData[playerid][pIncomingCall])
 	{
-	    SendClientMessage(playerid, COLOR_YELLOW, "[PHONE]:{FFFFFF} You have declined the incoming call.");
-	    SendClientMessage(targetid, COLOR_YELLOW, "[PHONE]:{FFFFFF} The other line has declined the call.");
+	    SendClientMessage(playerid, COLOR_YELLOW, "[Phone]:{FFFFFF} You have declined the incoming call.");
+	    SendClientMessage(targetid, COLOR_YELLOW, "[Phone]:{FFFFFF} The other line has declined the call.");
 
 		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has declined the call.", ReturnName(playerid, 0));
 	}
@@ -37866,8 +37594,7 @@ CMD:factionleave(playerid, params[])
 
 CMD:factioninvite(playerid, params[])
 {
-	new
-	    userid;
+	new userid;
 
 	if (PlayerData[playerid][pFaction] == -1)
 	    return SendErrorMessage(playerid, "You must be a faction member.");
@@ -42822,18 +42549,6 @@ CMD:apaintjob(playerid, params[])
 	return 1;
 }
 
-CMD:panel(playerid, params[])
-{
-    if (PlayerData[playerid][pAdmin] < 7)
-	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
-
-	if (g_ServerLocked)
-		Dialog_Show(playerid, ServerPanel, DIALOG_STYLE_LIST, "Server Panel", "Unlock Server\nSet Hostname\nExecute Query", "Select", "Cancel");
-
-	else Dialog_Show(playerid, ServerPanel, DIALOG_STYLE_LIST, "Server Panel", "Lock Server\nSet Hostname\nExecute Query", "Select", "Cancel");
-	return 1;
-}
-
 CMD:spawnitem(playerid, params[])
 {
     if (PlayerData[playerid][pAdmin] < 4)
@@ -42859,15 +42574,6 @@ CMD:spawnitem(playerid, params[])
 		return 1;
 	}
     SendErrorMessage(playerid, "Invalid item name (use /itemlist for a list).");
-	return 1;
-}
-
-CMD:itpnl(playerid, params[])
-{
-	if (g_ServerLocked)
-		Dialog_Show(playerid, ServerPanel, DIALOG_STYLE_LIST, "Server Panel", "Unlock Server\nSet Hostname\nExecute Query", "Select", "Cancel");
-
-	else Dialog_Show(playerid, ServerPanel, DIALOG_STYLE_LIST, "Server Panel", "Lock Server\nSet Hostname\nExecute Query", "Select", "Cancel");
 	return 1;
 }
 
@@ -43428,7 +43134,7 @@ CMD:admins(playerid, params[])
         count++;
 	}
 	if (!count) {
-	    SendClientMessage(playerid, COLOR_WHITE, "* There are currently no Administrators online.");
+	    SendClientMessage(playerid, COLOR_ANTICHEAT, "* There are currently no Administrators online.");
 	}
 	return 1;
 }
@@ -43450,7 +43156,7 @@ CMD:helpers(playerid, params[])
         count++;
 	}
 	if (!count) {
-	    SendClientMessage(playerid, COLOR_WHITE, "* There are currently no helpers online.");
+	    SendClientMessage(playerid, COLOR_ANTICHEAT, "* There are currently no helpers online.");
 	}
 	return 1;
 }
@@ -43501,8 +43207,8 @@ CMD:mylicenses(playerid, params[])
 	SendClientMessage(playerid, COLOR_GREY, "-----------------------------------------------------------");
 	SendClientMessageEx(playerid, COLOR_LIGHTRED, "INFO: 1 means you have the license. 0 means you do not. (Note this does not mean physical license. Check /showlicenses to see what...");
 	SendClientMessageEx(playerid, COLOR_LIGHTRED, "...licenses you have in your inventory). If you need a copy of your physical license, you can get one from town hall using /buylicense");
-	SendClientMessageEx(playerid, -1, "Car License: %d | Motorcycle License: %d | Trucking License: %d", PlayerData[playerid][pCarLicense], PlayerData[playerid][pBikeLicense], PlayerData[playerid][pTruckLicense]);
-	SendClientMessageEx(playerid, -1, "Helicopter License: %d | Airplane License: %d | Weapon License: %d", PlayerData[playerid][pHeliLicense], PlayerData[playerid][pAirLicense], PlayerData[playerid][pWeaponLicense]);
+	SendClientMessageEx(playerid, COLOR_ANTICHEAT, "Car License: %d | Motorcycle License: %d | Trucking License: %d", PlayerData[playerid][pCarLicense], PlayerData[playerid][pBikeLicense], PlayerData[playerid][pTruckLicense]);
+	SendClientMessageEx(playerid, COLOR_ANTICHEAT, "Helicopter License: %d | Airplane License: %d | Weapon License: %d", PlayerData[playerid][pHeliLicense], PlayerData[playerid][pAirLicense], PlayerData[playerid][pWeaponLicense]);
 	SendClientMessage(playerid, COLOR_GREY, "-----------------------------------------------------------");
 	return 1;
 }
