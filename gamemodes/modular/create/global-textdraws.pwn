@@ -19,20 +19,11 @@
 	TextDrawSetShadow(gServerTextdraws[1], 1);
 	TextDrawSetSelectable(gServerTextdraws[1], 0);
 
-	/*gServerTextdraws[1] = TextDrawCreate(500.000000, 6.000000, "Carson City ~r~Roleplay");
-	TextDrawBackgroundColor(gServerTextdraws[1], 255);
-	TextDrawFont(gServerTextdraws[1], 1);
-	TextDrawLetterSize(gServerTextdraws[1], 0.260000, 1.200000);
-	TextDrawColor(gServerTextdraws[1], -1);
-	TextDrawSetOutline(gServerTextdraws[1], 1);
-	TextDrawSetProportional(gServerTextdraws[1], 1);
-	TextDrawSetSelectable(gServerTextdraws[1], 0);*/
-
     gServerTextdraws[2] = TextDrawCreate(11.000000, 430.000000, "~r~You are injured!~w~ /call 911 or /giveup.");
 	TextDrawBackgroundColor(gServerTextdraws[2], 255);
 	TextDrawFont(gServerTextdraws[2], 1);
 	TextDrawLetterSize(gServerTextdraws[2], 0.300000, 1.100000);
-	TextDrawColor(gServerTextdraws[2], -1);
+	TextDrawColor(gServerTextdraws[2], 0xAAC4E5FF);
 	TextDrawSetOutline(gServerTextdraws[2], 1);
 	TextDrawSetProportional(gServerTextdraws[2], 1);
 	TextDrawSetSelectable(gServerTextdraws[2], 0);

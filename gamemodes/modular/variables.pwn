@@ -41,6 +41,12 @@
 #define COL_GREEN		"{6EF83C}"
 #define COL_RED         "{F81414}"
 #define COL_BLUE        "{0049FF}"
+
+#define	COLOR_VICE_LIGHTBLUE (0x00A8FFFF)
+#define COLOR_VICE_DARKBLUE  (0x0266C8FF)
+#define COLOR_VICE_LIGHTPINK (0xF4AFC2FF)
+#define COLOR_VICE_DARKPINK  (0xF195ACFF)
+#define COLOR_VICE_PURPLE	 (0xB28BC0FF)
 // END DEFINE COLORS //
 
 // OTHER DEFINES //
@@ -1296,7 +1302,7 @@ new const Float:arrHospitalDeliver[1][3] = {
 };
 
 new const Float:arrHospitalSpawns[1][4] = {
-	{-320.3284,1049.0070,20.3403, 0.0000}
+	{4860.8823, -1931.9386, 9.9228, 129.4685}
 };
 
 new const Float:g_arrWeaponDamage[] = {

@@ -1,12 +1,8 @@
 /* // TEXTDRAW INFORMATION //
-	0 to 10: Character textdraws
 	11 to 22: ID card
 	23 to 33: Character customization
 	34 to 38: Speedometer
 	39: Footer textdraw
-	40 to 49: Stats textdraw
-	50 to 57: Character textdraw
-	58 to 61: Tutorial textdraws
 	62: House light
 	63 to 64: Hunger and thirst (percent)
 	65 to 66: Hunger and thirst (model icons)
@@ -18,12 +14,12 @@
  * MySQL plugin R39-6
  */
 
+#define SSCANF_NO_NICE_FEATURES
+
 #pragma dynamic 500000
 
 // START INCLUDES //
 #include <a_samp>
-#define DEBUG // ac
-#include <nex-ac> // ac
 #include <a_mysql>
 #include <foreach>
 #include <easyDialog>
@@ -50,6 +46,9 @@ native WP_Hash(buffer[], len, const str[]);
 #include "./modular/macros.pwn"
 
 #include "./modular/map/map.pwn"
+
+#include "./modular/anticheat/ac.pwn"
+#include "./modular/anticheat/main.pwn"
 
 #include "./modular/sql/config.pwn"
 #include "./modular/account/sql.pwn"
@@ -102,11 +101,10 @@ stock ViewFactions(playerid)
 	{
 		if (FactionData[i][factionExists])
 		{
-			if(FactionData[i][factionType] == FACTION_GANG_DRUGS && PlayerData[playerid][pAdmin] < 2 || FactionData[i][factionType] == FACTION_GANG_GUNS && PlayerData[playerid][pAdmin] < 2) continue;
-			format(string, sizeof(string), "%s{FFFFFF}Faction ({FFBF00}%i{FFFFFF}) | %s\n", string, i, FactionData[i][factionName]);
+			format(string, sizeof(string), "%s%i | %s | %s\n", string, i, FactionData[i][factionName], GetInitials(FactionData[i][factionName]));
 		}
 	}
-	Dialog_Show(playerid, FactionsList, DIALOG_STYLE_MSGBOX, "Factions List", string, "Close", "");
+	Dialog_Show(playerid, FactionsList, DIALOG_STYLE_LIST, "Factions List", string, "Close", "");
 	return 1;
 }
 
@@ -201,35 +199,6 @@ public OnPlayerVehicleDamage(playerid,vehicleid,Float:Damage)
         GetPlayerHealth(playerid, health);
         SetPlayerHealth(playerid, health - 5);
         SendClientMessage(playerid, COLOR_PURPLE, "** Your health has been decreased as you hit something with your vehicle. **");
-    }
-}
-
-new BlockBridge[18];
-new g_Bridges;
-forward CloseBridges();
-public CloseBridges()
-{
-
-    BlockBridge[1] =         CreateObject(4516, -141.33594, 468.64844, 12.91406,   356.85840, 0.00000, -2.87979);
-    BlockBridge[2] =         CreateObject(4517, -193.82813, 269.50781, 12.89063,   356.85840, 0.00000, 0.26180);
-    BlockBridge[3] =         CreateObject(4515, 604.52344, 352.53906, 19.73438,   356.85840, 0.00000, -0.61087);
-    BlockBridge[4] =         CreateObject(4514, 440.04688, 587.44531, 19.73438,   356.85840, 0.00000, 2.53073);
-    BlockBridge[5] =         CreateObject(4518, 1694.32031, 395.10938, 31.16406,   356.85840, 0.00000, -1.23918);
-    BlockBridge[6] =         CreateObject(4520, 2766.71875, 603.62500, 9.14063,   3.14159, 0.00000, 1.57714);
-    BlockBridge[7] =         CreateObject(4519, 2766.83594, 323.85938, 9.15625,   356.85840, 0.00000, -1.56445);
-    BlockBridge[8] =         CreateObject(4527, -1009.58594, 943.81250, 35.47656,   3.14159, 0.00000, 0.02346);
-    BlockBridge[9] =         CreateObject(4523, -1592.78125, 622.78125, 42.96875,   356.85840, 0.00000, 3.14159);
-    BlockBridge[10] =         CreateObject(4524, -1141.71875, 1098.05469, 39.47656,   356.85840, 0.00000, 3.14159);
-    BlockBridge[11] =         CreateObject(4511, -2687.00000, 2058.20313, 59.73438,   3.14159, 0.00000, 1.57080);
-
-}
-
-forward OpenBridges();
-public OpenBridges()
-{
-    for___loop(new f = 0; f < sizeof(BlockBridge); f ++)
-    {
-        DestroyObject(BlockBridge[f]);
     }
 }
 
@@ -994,7 +963,7 @@ public RandomFire()
 	//CreateExplosion(fX, fY, fZ, 12, 5.0);
 	for (new i = 0; i != MAX_FACTIONS; i ++) if (FactionData[i][factionType] == FACTION_POLICE || FactionData[i][factionType] == FACTION_MEDIC)
 	{
-		SendFactionMessage(i, COLOR_RADIO, "[DISPATCH]: A fire has been spotted at %s (marked on map).", GetLocation(fX, fY, fZ));
+		SendFactionMessage(i, COLOR_RADIO, "[Dispatch]: A fire has been spotted at %s (marked on map).", GetLocation(fX, fY, fZ));
 	}
 	return 1;
 }
@@ -1008,7 +977,7 @@ public BreakCuffs(playerid, userid)
 	if (random(2))
 	{
 	    ShowPlayerFooter(playerid, "You have ~r~failed~w~ to pick the cuffs.");
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has failed to pick the cuffs.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has failed to pick the cuffs.", ReturnName(playerid, 0));
 	}
 	else
 	{
@@ -1016,7 +985,7 @@ public BreakCuffs(playerid, userid)
 	    SetPlayerSpecialAction(userid, SPECIAL_ACTION_NONE);
 
 	    ShowPlayerFooter(playerid, "You have ~g~picked~w~ the cuffs.");
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked the cuffs from %s's wrists.", ReturnName(playerid, 0), ReturnName(userid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked the cuffs from %s's wrists.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	}
 	return 1;
 }
@@ -1112,11 +1081,11 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    	{
       			new string[128];
 				SendServerMessage(playerid, "Your support ticket has been sent to helpers.");
-	        	format(string, sizeof(string), "[STAFF]: %s is needing some help. Use /assist %d to assist them.", ReturnName(playerid, 0), playerid);
-	        	format(string, sizeof(string), "[STAFF]: An assistance request has been received by %s. Use /assist %d to assist them.", ReturnName(playerid, 0), playerid);
+	        	format(string, sizeof(string), "[Staff]: {FFFFFF}%s is needing some help. Use /assist %d to assist them.", ReturnName(playerid, 0), playerid);
+	        	format(string, sizeof(string), "[Staff]: {FFFFFF}An assistance request has been received by %s. Use /assist %d to assist them.", ReturnName(playerid, 0), playerid);
 				SendHelperAlert(COLOR_NEWGREEN, string);
-				format(string, sizeof(string), "[REQUEST] %s %s", inputtext), ReturnName(playerid, 0);
-				SendHelperAlert(COLOR_WHITE, string);
+				format(string, sizeof(string), "[Staff]: {FFFFFF} %s %s", inputtext), ReturnName(playerid, 0);
+				SendHelperAlert(COLOR_NEWGREEN, string);
 				AssistanceNeeded[playerid] = 1;
 				Assistance_Add(playerid, inputtext);
     		}
@@ -1127,10 +1096,8 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
   			else
 	    	{
       			new string[128];
-	        	format(string, sizeof(string), "[FACTION MANAGEMENT]: %s is requesting their faction name to be changed. Please contact them.", ReturnName(playerid, 0), playerid);
+	        	format(string, sizeof(string), "[Faction Mod]: %s is requesting their faction's name to be changed to ''%s''.", ReturnName(playerid, 0), playerid, inputtext);
 				SendFactionAlert(COLOR_NEWGREEN, string);
-				format(string, sizeof(string), "[DETAILS]: %s %s", inputtext), ReturnName(playerid, 0);
-				SendFactionAlert(COLOR_WHITE, string);
     		}
 		}
 		case 12250:
@@ -1244,14 +1211,14 @@ public KickHouse(playerid, id)
 	    case 0..2:
 	    {
 	        ShowPlayerFooter(playerid, "You have ~r~failed~w~ to kick the door down.");
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has failed to kick the door down.", ReturnName(playerid, 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has failed to kick the door down.", ReturnName(playerid, 0));
 		}
 		default:
 		{
 		    HouseData[id][houseLocked] = 0;
 		    House_Save(id);
 
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has successfully kicked the door down.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has successfully kicked the door down.", ReturnName(playerid, 0));
 		    ShowPlayerFooter(playerid, "Press ~y~'F'~w~ to enter the house.");
 		}
 	}
@@ -1269,14 +1236,14 @@ public KickBusiness(playerid, id)
 	    case 0..2:
 	    {
 	        ShowPlayerFooter(playerid, "You have ~r~failed~w~ to kick the door down.");
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has failed to kick the door down.", ReturnName(playerid, 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has failed to kick the door down.", ReturnName(playerid, 0));
 		}
 		default:
 		{
 		    BusinessData[id][bizLocked] = 0;
 		    Business_Save(id);
 
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has successfully kicked the door down.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has successfully kicked the door down.", ReturnName(playerid, 0));
 		    ShowPlayerFooter(playerid, "Press ~y~'F'~w~ to enter the business.");
 		}
 	}
@@ -3635,7 +3602,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 22);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Colt 45 and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Colt 45 and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Glock-17", true))
@@ -3654,7 +3621,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 24);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Glock-17 and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Glock-17 and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Shotgun", true))
@@ -3670,7 +3637,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 25);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Shotgun and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Shotgun and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Micro SMG", true))
@@ -3686,7 +3653,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 28);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Micro SMG and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Micro SMG and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Tec-9", true))
@@ -3702,7 +3669,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 32);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Tec-9 and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Tec-9 and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "MP5", true))
@@ -3718,7 +3685,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 29);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty MP5 and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty MP5 and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "AK-47", true))
@@ -3734,7 +3701,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 30);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty AK-47 and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty AK-47 and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "M4", true))
@@ -3750,7 +3717,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 31);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty M4 and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty M4 and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Rifle", true))
@@ -3766,7 +3733,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 33);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Rifle and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Rifle and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Sniper", true))
@@ -3782,7 +3749,7 @@ stock EquipWeapon(playerid, weapon[])
 
 		HoldWeapon(playerid, 34);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out an empty Sniper and holds it.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out an empty Sniper and holds it.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "Press 'N' to put the gun away. You must attach a magazine to use it.");
 	}
 	else if (!strcmp(weapon, "Golf Club", true))
@@ -3796,7 +3763,7 @@ stock EquipWeapon(playerid, weapon[])
 	    GiveWeaponToPlayer(playerid, 2, 1);
 
 	    Inventory_Remove(playerid, "Golf Club");
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has equipped a Golf Club from their inventory.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has equipped a Golf Club from their inventory.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(weapon, "Knife", true))
 	{
@@ -3809,7 +3776,7 @@ stock EquipWeapon(playerid, weapon[])
 	    GiveWeaponToPlayer(playerid, 4, 1);
 
 	    Inventory_Remove(playerid, "Knife");
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has equipped a Knife from their inventory.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has equipped a Knife from their inventory.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(weapon, "Shovel", true))
 	{
@@ -3822,7 +3789,7 @@ stock EquipWeapon(playerid, weapon[])
 	    GiveWeaponToPlayer(playerid, 6, 1);
 
 	    Inventory_Remove(playerid, "Shovel");
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has equipped a Shovel from their inventory.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has equipped a Shovel from their inventory.", ReturnName(playerid, 0));
 	}
     else if (!strcmp(weapon, "Katana", true))
 	{
@@ -3835,7 +3802,7 @@ stock EquipWeapon(playerid, weapon[])
 	    GiveWeaponToPlayer(playerid, 8, 1);
 
 	    Inventory_Remove(playerid, "Katana");
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has equipped a Katana from their inventory.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has equipped a Katana from their inventory.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -3860,34 +3827,6 @@ stock MDCVehicleSearch(playerid, plate[])
 	format(query, sizeof(query), "SELECT * FROM `cars` WHERE `carPlate` = '%s'", plate);
 	mysql_tquery(g_iHandle, query, "OnCarOwnerMDC", "ds", playerid, plate);
 	return 1;
-}
-
-CMD:locktolls(playerid, params[])
-{
-    new factionid = PlayerData[playerid][pFaction];
-    if (GetFactionType(playerid) != FACTION_POLICE)
-       return SendErrorMessage(playerid, "You must be a police officer.");
-
-    if (PlayerData[playerid][pFactionRank] < FactionData[PlayerData[playerid][pFaction]][factionRanks] - 3)
-        return SendErrorMessage(playerid, "You must be at least rank %d.", FactionData[PlayerData[playerid][pFaction]][factionRanks] - 3);
-
-    if (!g_Bridges)
-    {
-        SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[DISPATCH]:{FFFFFF} %s %s has locked down all tolls.", Faction_GetRank(playerid), ReturnName(playerid, 0));
-        SendClientMessage(playerid, COLOR_RED, "You have closed all San Andreas tolls.");
-        SendClientMessageEx(playerid, COLOR_GREY, "[ANNOUNCEMENT] {FFFFFF}All tolls have been by the Police Department.");
-        CloseBridges();
-        g_Bridges = true;
-    }
-    else
-    {
-        SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[DISPATCH]:{FFFFFF} %s %s has reopened all tolls.", Faction_GetRank(playerid), ReturnName(playerid, 0));
-        SendClientMessage(playerid, COLOR_RED, "You have opened all tolls.");
-        SendClientMessageEx(playerid, COLOR_GREY, "[ANNOUNCEMENT] {FFFFFF}All tolls have been reopened by the Police Department.");
-        OpenBridges();
-        g_Bridges = false;
-    }
-    return 1;
 }
 
 CMD:relog(playerid, params[])
@@ -4410,7 +4349,7 @@ stock GetLocation(Float:fX, Float:fY, Float:fZ)
 		{!"Whetstone",                    {-2997.40, -2892.90, -242.90, -1213.90, -1115.50, 900.00}}
 	};
 	new
-	    name[32] = "San Andreas";
+	    name[32] = "Vice City";
 
 	for (new i = 0; i != sizeof(g_arrZoneData); i ++) if ((fX >= g_arrZoneData[i][e_ZoneArea][0] && fX <= g_arrZoneData[i][e_ZoneArea][3]) && (fY >= g_arrZoneData[i][e_ZoneArea][1] && fY <= g_arrZoneData[i][e_ZoneArea][4]) && (fZ >= g_arrZoneData[i][e_ZoneArea][2] && fZ <= g_arrZoneData[i][e_ZoneArea][5])) {
 		strunpack(name, g_arrZoneData[i][e_ZoneName]);
@@ -4602,7 +4541,7 @@ stock LeaveTaxi(playerid, driverid)
 	    GiveMoney(playerid, -PlayerData[playerid][pTaxiFee]);
    		GiveMoney(driverid, PlayerData[playerid][pTaxiFee]);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid $%d to the taxi driver.", ReturnName(playerid, 0), PlayerData[playerid][pTaxiFee]);
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid $%d to the taxi driver.", ReturnName(playerid, 0), PlayerData[playerid][pTaxiFee]);
 
 	    PlayerData[playerid][pTaxiFee] = 0;
 	    PlayerData[playerid][pTaxiTime] = 0;
@@ -4781,14 +4720,11 @@ SetAccessories(playerid)
 
 SQL_LoadCharacter(playerid, characterid)
 {
-	SendClientMessageToAllEx(-1, "[Debug] SQL_LoadCharacter: yes it got read in time  %i", characterid);
 	if (characterid < 1 || characterid > 3)
 		return 0;
 
 	new
 		query[160];
-
-	SendClientMessageToAllEx(-1, "[Debug] SQL_LoadCharacter: Loading character  %i", characterid);
 
 	format(query, sizeof(query), "UPDATE `characters` SET `LastLogin` = '%d' WHERE `Username` = '%s' AND `chara` = '%s'", gettime(), PlayerData[playerid][pUsername], PlayerCharacters[playerid][characterid - 1]);
 	mysql_tquery(g_iHandle, query);
@@ -5028,7 +4964,7 @@ DropPlayerItem(playerid, itemid, quantity = 1)
  	Inventory_Remove(playerid, string, quantity);
 
 	ApplyAnimation(playerid, "GRENADE", "WEAPON_throwu", 4.1, 0, 0, 0, 0, 0, 1);
- 	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a \"%s\".", ReturnName(playerid, 0), string);
+ 	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a \"%s\".", ReturnName(playerid, 0), string);
 
 	return 1;
 }
@@ -5268,7 +5204,7 @@ Arrest_Refresh(arrestid)
 		if (IsValidDynamic3DTextLabel(ArrestData[arrestid][arrestText3D]))
 		    DestroyDynamic3DTextLabel(ArrestData[arrestid][arrestText3D]);
 
-		format(string, sizeof(string), "[Arrest %d]\n{FFFFFF}/arrest to arrest the suspect.", arrestid);
+		format(string, sizeof(string), "[Arrest]\n{FFFFFF}/jail to jail the suspect.");
 
 		ArrestData[arrestid][arrestPickup] = CreateDynamicPickup(1247, 23, ArrestData[arrestid][arrestPos][0], ArrestData[arrestid][arrestPos][1], ArrestData[arrestid][arrestPos][2], ArrestData[arrestid][arrestWorld], ArrestData[arrestid][arrestInterior]);
   		ArrestData[arrestid][arrestText3D] = CreateDynamic3DTextLabel(string, COLOR_DEPARTMENT, ArrestData[arrestid][arrestPos][0], ArrestData[arrestid][arrestPos][1], ArrestData[arrestid][arrestPos][2], 10.0, INVALID_VEHICLE_ID, INVALID_PLAYER_ID, 1, ArrestData[arrestid][arrestWorld], ArrestData[arrestid][arrestInterior]);
@@ -6404,7 +6340,7 @@ public HarvestPlant(playerid, plantid)
 	        if (id == -1)
 	            return SendErrorMessage(playerid, "You don't have any room in your inventory.");
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has harvested %d grams of marijuana.", ReturnName(playerid, 0), PlantData[plantid][plantDrugs]);
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has harvested %d grams of marijuana.", ReturnName(playerid, 0), PlantData[plantid][plantDrugs]);
 		}
 		case 2:
 	    {
@@ -6413,7 +6349,7 @@ public HarvestPlant(playerid, plantid)
 	        if (id == -1)
 	            return SendErrorMessage(playerid, "You don't have any room in your inventory.");
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has harvested %d grams of cocaine.", ReturnName(playerid, 0), PlantData[plantid][plantDrugs]);
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has harvested %d grams of cocaine.", ReturnName(playerid, 0), PlantData[plantid][plantDrugs]);
 		}
         case 3:
 	    {
@@ -6422,7 +6358,7 @@ public HarvestPlant(playerid, plantid)
 	        if (id == -1)
 	            return SendErrorMessage(playerid, "You don't have any room in your inventory.");
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has harvested %d grams of heroin.", ReturnName(playerid, 0), PlantData[plantid][plantDrugs]);
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has harvested %d grams of heroin.", ReturnName(playerid, 0), PlantData[plantid][plantDrugs]);
 		}
 	}
 	Plant_Delete(plantid);
@@ -6575,7 +6511,7 @@ public RepairCar(playerid, vehicleid)
 	UpdateVehicleDamageStatus(vehicleid, panels, doors, 0, 0);
 
 	PlayerData[playerid][pRepairTime] = gettime() + 60;
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has successfully repaired the vehicle.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has successfully repaired the vehicle.", ReturnName(playerid, 0));
 
 	return 1;
 }
@@ -6953,14 +6889,15 @@ House_Refresh(houseid)
 		    string[128];
 
 		if (!HouseData[houseid][houseOwner]) {
+			HouseData[houseid][housePickup] = CreateDynamicPickup(1273, 23, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 			format(string, sizeof(string), "[%s]\n%s", FormatNumber(HouseData[houseid][housePrice]), HouseData[houseid][houseAddress]);
             HouseData[houseid][houseText3D] = CreateDynamic3DTextLabel(string, 0x33AA33FF, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 		}
 		else {
+			HouseData[houseid][housePickup] = CreateDynamicPickup(19522, 23, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 			format(string, sizeof(string), "%s", HouseData[houseid][houseAddress]);
 			HouseData[houseid][houseText3D] = CreateDynamic3DTextLabel(string, COLOR_WHITE, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 		}
-        HouseData[houseid][housePickup] = CreateDynamicPickup(1273, 23, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 		//HouseData[houseid][houseMapIcon] = CreateDynamicMapIcon(HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], (HouseData[houseid][houseOwner] != 0) ? (32) : (31), 0, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 	}
 	return 1;
@@ -7830,7 +7767,7 @@ Job_Refresh(jobid)
 
 		if (JobData[jobid][jobType] == 1) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Courier]\n{FFFFFF}Type /loadcrate to get crates.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1210, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
 		}
 		else if (JobData[jobid][jobType] == 5) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Mining]\n{FFFFFF}Type /mine to begin mining.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
@@ -7859,7 +7796,7 @@ Job_Refresh(jobid)
 			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
 		}
 		JobData[jobid][jobText3D][0] = CreateDynamic3DTextLabel(string, COLOR_DEPARTMENT, JobData[jobid][jobPos][0], JobData[jobid][jobPos][1], JobData[jobid][jobPos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, JobData[jobid][jobWorld], JobData[jobid][jobInterior]);
-        JobData[jobid][jobPickups][0] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPos][0], JobData[jobid][jobPos][1], JobData[jobid][jobPos][2], JobData[jobid][jobWorld], JobData[jobid][jobInterior]);
+        JobData[jobid][jobPickups][0] = CreateDynamicPickup(1275, 23, JobData[jobid][jobPos][0], JobData[jobid][jobPos][1], JobData[jobid][jobPos][2], JobData[jobid][jobWorld], JobData[jobid][jobInterior]);
 	}
 	return 1;
 }
@@ -9024,13 +8961,13 @@ Business_Refresh(bizid)
 			pickup;
 
 		if (!BusinessData[bizid][bizOwner]) {
-			format(string, sizeof(string), "[FOR SALE]{FFFFFF}\n[%s]\n%s", FormatNumber(BusinessData[bizid][bizPrice]), BusinessData[bizid][bizName]);
+			format(string, sizeof(string), "[For Sale]{FFFFFF}\n[%s]\n%s", FormatNumber(BusinessData[bizid][bizPrice]), BusinessData[bizid][bizName]);
             BusinessData[bizid][bizText3D] = CreateDynamic3DTextLabel(string, COLOR_DEPARTMENT, BusinessData[bizid][bizPos][0], BusinessData[bizid][bizPos][1], BusinessData[bizid][bizPos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, BusinessData[bizid][bizExteriorVW], BusinessData[bizid][bizExterior]);
 		}
 		else
 		{
 			if (BusinessData[bizid][bizLocked]) {
-			    format(string, sizeof(string), "[LOCKED]\n{FFFFFF}%s", BusinessData[bizid][bizName]);
+			    format(string, sizeof(string), "[Locked]\n{FFFFFF}%s", BusinessData[bizid][bizName]);
 			}
 			else {
 			    format(string, sizeof(string), "%s", BusinessData[bizid][bizName]);
@@ -9038,14 +8975,14 @@ Business_Refresh(bizid)
 			BusinessData[bizid][bizText3D] = CreateDynamic3DTextLabel(string, (BusinessData[bizid][bizLocked]) ? (COLOR_DEPARTMENT) : (COLOR_WHITE), BusinessData[bizid][bizPos][0], BusinessData[bizid][bizPos][1], BusinessData[bizid][bizPos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, BusinessData[bizid][bizExteriorVW], BusinessData[bizid][bizExterior]);
 		}
 		switch (BusinessData[bizid][bizType]) {
-		    case 1: pickup = 19135;
-		    case 2: pickup = 19135;
-		    case 3: pickup = 19135;
-		    case 4: pickup = 19135;
-		    case 5: pickup = 19135;
-		    case 6: pickup = 19135;
-		    case 7: pickup = 19135;
-		    case 8: pickup = 19135;
+		    case 1: pickup = 1274;
+		    case 2: pickup = 1274;
+		    case 3: pickup = 1274;
+		    case 4: pickup = 1274;
+		    case 5: pickup = 1274;
+		    case 6: pickup = 1274;
+		    case 7: pickup = 1274;
+		    case 8: pickup = 1274;
 		}
 		if (BusinessData[bizid][bizType] == 6) {
         	BusinessData[bizid][bizPickup] = CreateDynamicPickup(pickup, 23, BusinessData[bizid][bizPos][0], BusinessData[bizid][bizPos][1], BusinessData[bizid][bizPos][2] + 0.3, BusinessData[bizid][bizExteriorVW], BusinessData[bizid][bizExterior]);
@@ -9659,71 +9596,7 @@ ReturnIP(playerid)
 
 ShowStatsForPlayer(playerid, targetid)
 {
-    new
-	    account[24],
-	    origin[32],
-	    string[128],
-	    admin[128],
-		count;
-
-	for (new i = 0; i < MAX_INVENTORY; i ++) if (InventoryData[playerid][i][invExists]) {
-	    count++;
-	}
-	if (PlayerData[targetid][pAdmin] > 0) account = "Admin";
-	else account = "Player";
-
-	if (PlayerData[targetid][pHelper] > 0) account = "Helper";
-	else account = "Player";
-
-	if (PlayerData[targetid][pAdminHide] < 1 && PlayerData[targetid][pAdmin] >= 1) admin = "Yes";
-	else admin = "No";
-
-	format(origin, 32, "%.16s", PlayerData[targetid][pOrigin]);
-
-	if (strlen(PlayerData[targetid][pOrigin]) > 16)
-		strcat(origin, "...");
-
-	format(string, sizeof(string), "~g~Sex:~w~ %s~n~~g~Birthdate:~w~ %s~n~~g~Origin:~w~ %s", (PlayerData[targetid][pGender] == 2) ? ("Female") : ("Male"), PlayerData[targetid][pBirthdate], origin);
-	PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][42], string);
-
-	format(string, sizeof(string), "%s (ID: %d)", ReturnName(targetid), targetid);
-	PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][43], string);
-
-	format(string, sizeof(string), "~g~Ping:~w~ %d~n~~g~Packetloss:~w~ %.1f%%", GetPlayerPing(targetid), NetStats_PacketLossPercent(targetid));
-	format(string, sizeof(string), "~g~Hours:~w~ %d~n~~g~Job:~w~ %s~n~~g~Inventory:~w~ %d/%d", PlayerData[targetid][pPlayingHours], Job_GetName(PlayerData[targetid][pJob]), count, MAX_INVENTORY);
-	PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][46], string);
-
-    format(string, sizeof(string), "~g~Money:~w~ %s~n~~g~Bank:~w~ %s~n~~g~Savings:~w~ %s", FormatNumber(PlayerData[targetid][pMoney]), FormatNumber(PlayerData[targetid][pBankMoney]), FormatNumber(PlayerData[targetid][pSavings]));
-	PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][44], string);
-
-	format(string, sizeof(string), "~g~Account:~w~ %s~n~~g~Admin:~w~ %s~n~~g~Accent:~w~ %s", account, admin, GetAccent(playerid));
-	PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][45], string);
-
-	if (!PlayerData[playerid][pDisplayStats])
-	{
-	    if (targetid != playerid)
-		{
-		    for (new i = 40; i < 50; i ++) if (i != 47 && i != 48) {
-				PlayerTextDrawShow(playerid, PlayerData[playerid][pTextdraws][i]);
-			}
-		}
-		else for (new i = 40; i < 50; i ++) {
-			PlayerTextDrawShow(playerid, PlayerData[playerid][pTextdraws][i]);
-		}
-		SelectTextDraw(playerid, -1);
-		PlayerData[playerid][pDisplayStats] = true;
-	}
-	else
-	{
-	    if (PlayerData[playerid][pDisplayStats] == 2) {
-	        for (new i = 50; i < 58; i ++) PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-	    }
-	    else for (new i = 40; i < 50; i ++) {
-			PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-		}
-		CancelSelectTextDraw(playerid);
-		PlayerData[playerid][pDisplayStats] = false;
-	}
+	SendClientMessageEx(playerid, -1, "%i | debug | /stats is to be added", targetid);
 	return 1;
 }
 
@@ -10732,21 +10605,8 @@ stock SetDefaultSpawn(playerid)
 
 	if(PlayerData[playerid][pSpawnPoint] == 0)
 	{
-	    SetPlayerPos(playerid, 1311.1213,280.3048,19.5547);
-	    SetPlayerFacingAngle(playerid, 76.1806);
-	}
-	if(PlayerData[playerid][pSpawnPoint] == 1)
-	{
-	    new faction = PlayerData[playerid][pFactionID];
-	    if(PlayerData[playerid][pFactionID] == -1)
-	    {
-	        SendErrorMessage(playerid, "You've been set to civilian spawn.");
-		    SetPlayerPos(playerid, -86.8474,1206.3198,19.7422);
-		    SetPlayerFacingAngle(playerid, 179.9252);
-		}
-		SetPlayerPos(playerid,FactionData[faction][SpawnX],FactionData[faction][SpawnY],FactionData[faction][SpawnZ]);
-		SetPlayerInterior(playerid,FactionData[faction][SpawnInterior]);
-		SetPlayerVirtualWorld(playerid, FactionData[faction][SpawnVW]);
+	    SetPlayerPos(playerid, 5134.4199, -1769.7264, 9.9042);
+	    SetPlayerFacingAngle(playerid, 56.0514);
 	}
 	if(PlayerData[playerid][pSpawnPoint] == 2)
 	{
@@ -10763,7 +10623,7 @@ stock SetDefaultSpawn(playerid)
 
 stock RespawnPlayer(playerid)
 {
-	if (IsPlayerInAnyVehicle(playerid))
+	if(IsPlayerInAnyVehicle(playerid))
 	{
         new
 		    Float:x,
@@ -12717,7 +12577,7 @@ public OnQueryError(errorid, error[], callback[], query[], connectionHandle)
 	{
 		if(PlayerData[i][pAdmin] >= 6)
 		{
-	    	Dialog_Show(i, ShowOnly, DIALOG_STYLE_INPUT, "[!] MySQL Alert", "Error: %s\nCallback %s\nQuery %s", "Ok", "", error, callback, query);
+	    	Dialog_Show(i, ShowOnly, DIALOG_STYLE_MSGBOX, "[!] MySQL Alert", "Error: %s\n\nCallback %s\n\nQuery %s", "Ok", "", error, callback, query);
 		}
 	}
  	printf("[MySQL]: Error: %s\nCallback %s\nQuery %s", error, callback, query);
@@ -13288,6 +13148,9 @@ public OnQueryFinished(extraid, threadid)
 				PlayerData[extraid][pAdmin] = cache_get_field_int(0, "Admin");
 				PlayerData[extraid][pHelper] = cache_get_field_int(0, "Helper");
 				cache_get_field_content(0, "ForumName", PlayerData[extraid][pForumName], g_iHandle, 32);
+				printf("Admin Level: %i\n", PlayerData[extraid][pAdmin]);
+				printf("Helper Level: %i\n", PlayerData[extraid][pHelper]);
+				printf("Forum Name: %s\n", PlayerData[extraid][pForumName]);
 			}
 		}
 	}
@@ -13305,37 +13168,31 @@ Dialog:SpawnCharacter(playerid, response, listitem, inputtext[])
 		if(listitem == 0)
 		{
 			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-			printf("[Debug]: Listitem 0 selected.\n");
 			return 1;
 		}
 		if(listitem == 1)
 		{
 			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-			printf("[Debug]: Listitem 1 selected.\n");
 			return 1;
 		}
 		if(listitem == 2)
 		{
 			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-			printf("[Debug]: Listitem 2 selected.\n");
 			return 1;
 		}
 		if(listitem == 3)
 		{
 			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-			printf("[Debug]: Listitem 3 selected.\n");
 			return 1;
 		}
 		if(listitem == 4)
 		{
 			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-			printf("[Debug]: Listitem 4 selected.\n");
 			return 1;
 		}
 		if(listitem == 5)
 		{
 			SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-			printf("[Debug]: Listitem 5 selected.\n");
 			return 1;
 		}
 	}
@@ -13348,7 +13205,7 @@ public LoadDataFromMasterAccount(extraid)
 	new query[250];
 	new name[MAX_PLAYER_NAME];
 	GetPlayerName(extraid, name, sizeof(name));
-	format(query, sizeof(query), "SELECT accounts.Admin, accounts.Helper, accounts.ForumName, characters.Username FROM accounts AND characters WHERE characters.Username = accounts.username AND characters.chara = %s", name);
+	format(query, sizeof(query), "SELECT Admin, Helper, ForumName FROM accounts WHERE username = '%s'", SQL_ReturnEscaped(PlayerData[extraid][pUsername]));
 	mysql_tquery(g_iHandle, query, "OnQueryFinished", "dd", extraid, THREAD_LOAD_MASTERACCOUNT_DATA);
 	return 1;
 }
@@ -13432,12 +13289,12 @@ public OnCarOwnerMDC(extraid, plate[])
 	{
 		switch(carfaction)
 		{
-			case 1: ownerstring = "SHERRIF'S OFFICE";
-			case 2: ownerstring = "NEWS COMPANY";
-			case 3: ownerstring = "FIRE DEPARTMENT";
-			case 4: ownerstring = "BONE COUNTY GOVERNMENT";
-			case 5: ownerstring = "UNKNOWN (GANG)";
-			case 6: ownerstring = "SECURITY FACTION";
+			case 1: ownerstring = "Vice City Police Dept.";
+			case 2: ownerstring = "Vice City News Netowrk";
+			case 3: ownerstring = "Fire Department";
+			case 4: ownerstring = "Vice City Government";
+			case 5: ownerstring = "Unidentified (gang)";
+			case 6: ownerstring = "Security Faction";
 		}
 	}
 
@@ -13445,16 +13302,16 @@ public OnCarOwnerMDC(extraid, plate[])
 	{
 		switch(carjob)
 		{
-			case 1: ownerstring = "COURIER COMPANY (job)";
-			case 2: ownerstring = "MECHANIC COMPANY (job)";
-			case 3: ownerstring = "TAXI COMPANY (job)";
-			case 4: ownerstring = "UNLOADER COMPANY (job)";
-			case 5: ownerstring = "MINER COMPANY (job)";
-			case 6: ownerstring = "FOOD VENDOR CO. (job)";
-			case 7: ownerstring = "SANITATION DEPT. (job)";
-			case 8: ownerstring = "SORTING COMPANY (job)";
-			case 9: ownerstring = "Wep Smuggle Job (if u see this... wtf?)";
-			case 10: ownerstring = "Fishers Inc. (job)";
+			case 1: ownerstring = "Courier (job)";
+			case 2: ownerstring = "Mechanic (job)";
+			case 3: ownerstring = "Taxi (job)";
+			case 4: ownerstring = "Underloader (job)";
+			case 5: ownerstring = "Miner (job)";
+			case 6: ownerstring = "Food Vendor (job)";
+			case 7: ownerstring = "Sanitation (job)";
+			case 8: ownerstring = "Sorting (job)";
+			case 9: ownerstring = "Weapon Smuggle (job)";
+			case 10: ownerstring = "Fishing (job)";
 		}
 	}
 
@@ -13511,12 +13368,12 @@ public OnViewCarInfo(extraid, vehid)
 	{
 		switch(carfaction)
 		{
-			case 1: ownerstring = "SHERRIF'S OFFICE";
-			case 2: ownerstring = "NEWS COMPANY";
-			case 3: ownerstring = "FIRE DEPARTMENT";
-			case 4: ownerstring = "BONE COUNTY GOVERNMENT";
-			case 5: ownerstring = "UNKNOWN (GANG)";
-			case 6: ownerstring = "SECURITY FACTION";
+			case 1: ownerstring = "Vice City Police Dept.";
+			case 2: ownerstring = "Vice City News Netowrk";
+			case 3: ownerstring = "Fire Department";
+			case 4: ownerstring = "Vice City Government";
+			case 5: ownerstring = "Unidentified (gang)";
+			case 6: ownerstring = "Security Faction";
 		}
 	}
 
@@ -13524,16 +13381,16 @@ public OnViewCarInfo(extraid, vehid)
 	{
 		switch(carjob)
 		{
-			case 1: ownerstring = "COURIER COMPANY (job)";
-			case 2: ownerstring = "MECHANIC COMPANY (job)";
-			case 3: ownerstring = "TAXI COMPANY (job)";
-			case 4: ownerstring = "UNLOADER COMPANY (job)";
-			case 5: ownerstring = "MINER COMPANY (job)";
-			case 6: ownerstring = "FOOD VENDOR CO. (job)";
-			case 7: ownerstring = "SANITATION DEPT. (job)";
-			case 8: ownerstring = "SORTING COMPANY (job)";
-			case 9: ownerstring = "Wep Smuggle Job (if u see this... wtf?)";
-			case 10: ownerstring = "Fishers Inc. (job)";
+			case 1: ownerstring = "Courier (job)";
+			case 2: ownerstring = "Mechanic (job)";
+			case 3: ownerstring = "Taxi (job)";
+			case 4: ownerstring = "Underloader (job)";
+			case 5: ownerstring = "Miner (job)";
+			case 6: ownerstring = "Food Vendor (job)";
+			case 7: ownerstring = "Sanitation (job)";
+			case 8: ownerstring = "Sorting (job)";
+			case 9: ownerstring = "Weapon Smuggle (job)";
+			case 10: ownerstring = "Fishing (job)";
 		}
 	}
 
@@ -13674,10 +13531,9 @@ stock SetCameraData(playerid)
 {
     SetPlayerPos(playerid, -1553.776367, 844.732299, 32.268722);
 
-	SetPlayerCameraPos(playerid, -214.1416, 1293.0591, 99.9568);
+	SetPlayerCameraPos(playerid, 5524.316894, -1035.757080, 10.603099);
 
-	SetPlayerCameraLookAt(playerid, -213.5678, 1292.2308, 99.3568);
-
+	SetPlayerCameraLookAt(playerid, 5524.316894, -1035.757080, 10.603099);
 	return 1;
 }
 
@@ -14400,25 +14256,25 @@ public MinuteCheck()
 			{
 				for (new b = 0; b != MAX_FACTIONS; b ++) if (FactionData[b][factionType] == FACTION_POLICE)
 				{
-					SendFactionMessage(b, COLOR_RADIOCHAT, "[DISPATCH]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
+					SendFactionMessage(b, COLOR_RADIOCHAT, "[Dispatch]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
 				}
 			}
 			if(NinerData[g][ninerType] == NINER_MEDIC)
 			{
 				for (new b = 0; b != MAX_FACTIONS; b ++) if (FactionData[b][factionType] == FACTION_MEDIC)
 				{
-					SendFactionMessage(b, COLOR_HOSPITAL, "[DISPATCH]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
+					SendFactionMessage(b, COLOR_HOSPITAL, "[Dispatch]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
 				}
 			}
 			if(NinerData[g][ninerType] == NINER_BOTH)
 			{
 				for (new b = 0; b != MAX_FACTIONS; b ++) if (FactionData[b][factionType] == FACTION_MEDIC)
 				{
-					SendFactionMessage(b, COLOR_HOSPITAL, "[DISPATCH]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
+					SendFactionMessage(b, COLOR_HOSPITAL, "[Dispatch]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
 				}
 				for (new b = 0; b != MAX_FACTIONS; b ++) if (FactionData[b][factionType] == FACTION_POLICE)
 				{
-					SendFactionMessage(b, COLOR_RADIOCHAT, "[DISPATCH]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
+					SendFactionMessage(b, COLOR_RADIOCHAT, "[Dispatch]: A 911 call has went unanswered. (cid: %d)", NinerData[g][ninerID]);
 				}
 			}
 			Niner_Unans(g);
@@ -14460,11 +14316,11 @@ public MinuteCheck()
 					PlayerData[i][pBankMoney] -= floatround(totaltax, floatround_ceil);
 					Tax_AddMoney(floatround(totaltax, floatround_ceil));
 
-				    SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+				    SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	         		SendClientMessageEx(i, COLOR_WHITE, "Your {33CC33}%s{FFFFFF} paycheck was added to your bank account.", FormatNumber(paycheck));
 	         		SendClientMessageEx(i, COLOR_WHITE, "{33CC33}%s{FFFFFF} has been deducted from your bank account for billboard fees", FormatNumber(BillBoardData[PlayerData[i][pOwnsBillboard]][bbPrice]));
 					SendClientMessageEx(i, COLOR_WHITE, "Total tax deducted from paycheck: {ff0000}$%d", floatround(totaltax, floatround_ceil));
-					SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+					SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 					PlayerData[i][pBankMoney] -= BillBoardData[PlayerData[i][pOwnsBillboard]][bbPrice];
 					Tax_AddMoney(BillBoardData[PlayerData[i][pOwnsBillboard]][bbPrice]);
 					PlayerData[i][pBankMoney] += paycheck;
@@ -14477,11 +14333,11 @@ public MinuteCheck()
 					PlayerData[i][pBankMoney] -= floatround(totaltax, floatround_ceil);
 					Tax_AddMoney(floatround(totaltax, floatround_ceil));
 
-			        SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+			        SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	         		SendClientMessageEx(i, COLOR_WHITE, "Your {33CC33}%s{FFFFFF} paycheck was added to your bank account.", FormatNumber(paycheck));
 	         		SendClientMessageEx(i, COLOR_LIGHTRED, "You cannot afford to pay for your billboard anymore, therefor it has been unrented");
 					SendClientMessageEx(i, COLOR_WHITE, "Total tax deducted from paycheck: {ff0000}$%d", floatround(totaltax, floatround_ceil));
-					SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+					SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 					BillBoardData[PlayerData[i][pOwnsBillboard]][bbOwner] = 0;
 					Billboard_Save(PlayerData[i][pOwnsBillboard]);
 					Billboard_Refresh(PlayerData[i][pOwnsBillboard]);
@@ -14490,7 +14346,7 @@ public MinuteCheck()
 				}
 				return 1;
 			}
-			if (GetFactionType(i) == FACTION_POLICE || GetFactionType(i) == FACTION_NEWS || GetFactionType(i) == FACTION_GOV)
+			else if (GetFactionType(i) == FACTION_POLICE || GetFactionType(i) == FACTION_NEWS || GetFactionType(i) == FACTION_GOV)
 			{
 				totalpaycheck = paycheck + govpaycheck;
 				totaltax = floatmul(totalpaycheck, taxpercent);
@@ -14498,16 +14354,16 @@ public MinuteCheck()
 				Tax_AddMoney(floatround(totaltax, floatround_ceil));
 				Tax_AddMoney(-govpaycheck);
 
-	         	SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+	         	SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your {33CC33}%s{FFFFFF} paycheck was added to your bank account.", FormatNumber(paycheck));
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your government pay {33CC33}%s{FFFFFF} has also been added to your account.", FormatNumber(govpaycheck));
 				SendClientMessageEx(i, COLOR_WHITE, "Total tax deducted from paycheck: {ff0000}$%d", floatround(totaltax, floatround_ceil));
-				SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+				SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
                 PlayerData[i][pBankMoney] += paycheck;
                 PlayerData[i][pBankMoney] += govpaycheck;
 
 			}
-			if (GetFactionType(i) == FACTION_MEDIC)
+			else if (GetFactionType(i) == FACTION_MEDIC)
 			{
 				new totalgovpay = govpaycheck + govpaycheck;
 				totalpaycheck = paycheck + totalgovpay;
@@ -14516,11 +14372,11 @@ public MinuteCheck()
 				Tax_AddMoney(floatround(totaltax, floatround_ceil));
 				Tax_AddMoney(-totalgovpay);
 
-	         	SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+	         	SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your {33CC33}%s{FFFFFF} paycheck was added to your bank account.", FormatNumber(paycheck));
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your government pay {33CC33}%s{FFFFFF} has also been added to your account.", FormatNumber(totalgovpay));
 				SendClientMessageEx(i, COLOR_WHITE, "Total tax deducted from paycheck: {ff0000}$%d", floatround(totaltax, floatround_ceil));
-				SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+				SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
                 PlayerData[i][pBankMoney] += paycheck;
                 PlayerData[i][pBankMoney] += totalgovpay;
 
@@ -14532,11 +14388,11 @@ public MinuteCheck()
 				PlayerData[i][pBankMoney] -= floatround(totaltax, floatround_ceil);
 				Tax_AddMoney(floatround(totaltax, floatround_ceil));
 
-			    SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+			    SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your {33CC33}%s{FFFFFF} paycheck was added to your bank account.", FormatNumber(paycheck));
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your additional pay {33CC33}%s{FFFFFF} has also been added to your account.", FormatNumber(privpay));
 				SendClientMessageEx(i, COLOR_WHITE, "Total tax deducted from paycheck: {ff0000}$%d", floatround(totaltax, floatround_ceil));
-				SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+				SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	            PlayerData[i][pBankMoney] += paycheck;
 	            PlayerData[i][pBankMoney] += privpay;
 			}
@@ -14547,10 +14403,10 @@ public MinuteCheck()
 				PlayerData[i][pBankMoney] -= floatround(totaltax, floatround_ceil);
 				Tax_AddMoney(floatround(totaltax, floatround_ceil));
 
-				SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+				SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
 	         	SendClientMessageEx(i, COLOR_WHITE, "Your {33CC33}%s{FFFFFF} paycheck was added to your bank account.", FormatNumber(paycheck));
 				SendClientMessageEx(i, COLOR_WHITE, "Total tax deducted from paycheck: {ff0000}$%d", floatround(totaltax, floatround_ceil));
-				SendClientMessage(i, COLOR_GREY, "-----------------------------------------------------------");
+				SendClientMessage(i, COLOR_ANTICHEAT, "-----------------------------------------------------------");
                 PlayerData[i][pBankMoney] += paycheck;
 			}
 			return 1;
@@ -14728,9 +14584,9 @@ public PlayerCheck()
                         CarData[id][carLocked] = 0;
 						Car_Save(id);
 
-					    SendNearbyMessage(i, 30.0, COLOR_PURPLE, "** %s has picked the lock of the vehicle.", ReturnName(i, 0));
-					    ShowPlayerFooter(i, "You have ~g~unlocked~w~ the vehicle!");
-					    SendFactionMessageEx(FACTION_POLICE, COLOR_RADIO, "DISPATCHER: All units, a %s has been stolen from %s. Responding units please advise.", ReturnVehicleName(CarData[id][carVehicle]), GetPlayerLocation(i));
+					    SendNearbyMessage(i, 30.0, COLOR_PURPLE, "* %s has picked the lock of the vehicle.", ReturnName(i, 0));
+					    ShowPlayerFooter(i, "You have ~r~unlocked~w~ the vehicle!");
+					    SendFactionMessageEx(FACTION_POLICE, COLOR_RADIO, "[Dispatch]: All units, a %s has been stolen from %s. Responding units please advise.", ReturnVehicleName(CarData[id][carVehicle]), GetPlayerLocation(i));
 
 					}
 				}
@@ -14795,7 +14651,7 @@ public PlayerCheck()
 				    Graffiti_Save(PlayerData[i][pGraffiti]);
 
 				    ClearAnimations(i, 1);
-					SendNearbyMessage(i, 30.0, COLOR_PURPLE, "** %s puts their can of spray paint away.", ReturnName(i, 0));
+					SendNearbyMessage(i, 30.0, COLOR_PURPLE, "* %s puts their can of spray paint away.", ReturnName(i, 0));
 
 	                PlayerData[i][pGraffiti] = -1;
 	                PlayerData[i][pGraffitiTime] = 0;
@@ -15362,11 +15218,11 @@ public OnPlayerPickUpDynamicPickup(playerid, pickupid)
 			{
 				new string[180];
 				format(string, sizeof(string), "Would you like to go on duty as a %s?", JobData[jobid][jobType]);
-				Dialog_Show(playerid, JoinJob, DIALOG_STYLE_LIST, Job_GetName(JobData[jobid][jobType]), string, "Yes", "Cancel");
+				Dialog_Show(playerid, JoinJob, DIALOG_STYLE_MSGBOX, Job_GetName(JobData[jobid][jobType]), string, "Yes", "Cancel");
 			}
 			else if(PlayerData[playerid][pJob] != 0)
 			{
-				Dialog_Show(playerid, LeaveJob, DIALOG_STYLE_LIST, Job_GetName(JobData[jobid][jobType]), "Would you like to go off duty from your current job?", "Yes", "Cancel");
+				Dialog_Show(playerid, LeaveJob, DIALOG_STYLE_MSGBOX, Job_GetName(JobData[jobid][jobType]), "Would you like to go off duty from your current job?", "Yes", "Cancel");
 			}
 		}
 	}
@@ -15496,7 +15352,7 @@ public OnPlayerUseItem(playerid, itemid, name[])
 		Inventory_Remove(playerid, name);
 		PlayerData[playerid][pEditFurniture] = furniture;
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has deployed their \"%s\".", ReturnName(playerid, 0), name);
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has deployed their \"%s\".", ReturnName(playerid, 0), name);
 		EditDynamicObject(playerid, FurnitureData[furniture][furnitureObject]);
 	}
 	else if (!strcmp(name, "Magazine", true)) {
@@ -15572,7 +15428,7 @@ public OnPlayerUseItem(playerid, itemid, name[])
 		Inventory_Remove(playerid, "Cigar");
 		SetPlayerSpecialAction(playerid, SPECIAL_ACTION_SMOKE_CIGGY);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a cigarette from its pack and lights it up.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a cigarette from its pack and lights it up.", ReturnName(playerid, 0));
 		ShowPlayerFooter(playerid, "Press ~y~LMB~w~ to take a puff.");
 		return 1;
 	}
@@ -15587,7 +15443,7 @@ public OnPlayerUseItem(playerid, itemid, name[])
 	    ApplyAnimation(playerid, "FOOD", "EAT_Chicken",4.1,0,1,1,0,0);
 		SetPlayerWeather(playerid, 0);
 		GivePlayerHealth(playerid, 15);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a pill and swallows it.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a pill and swallows it.", ReturnName(playerid, 0));
 		ShowPlayerFooter(playerid, "Your health has been replenished by 15 percent.");
 		return 1;
 	}
@@ -15680,7 +15536,7 @@ public OnPlayerUseItem(playerid, itemid, name[])
 		Inventory_Remove(playerid, "Cooked Pizza");
 
 		ApplyAnimation(playerid, "FOOD", "EAT_Burger", 4.1, 0, 0, 0, 0, 0, 1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes a slice of pizza and eats it.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes a slice of pizza and eats it.", ReturnName(playerid, 0));
     }
     else if (!strcmp(name, "Cooked Burger", true))
 	{
@@ -15696,7 +15552,7 @@ public OnPlayerUseItem(playerid, itemid, name[])
 		Inventory_Remove(playerid, "Cooked Burger");
 
 		ApplyAnimation(playerid, "FOOD", "EAT_Burger", 4.1, 0, 0, 0, 0, 0, 1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes a cooked burger and eats it.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes a cooked burger and eats it.", ReturnName(playerid, 0));
     }
     else if (!strcmp(name, "Chicken", true))
 	{
@@ -15707,7 +15563,7 @@ public OnPlayerUseItem(playerid, itemid, name[])
 		Inventory_Remove(playerid, "Chicken");
 
 		ApplyAnimation(playerid, "VENDING", "VEND_Eat_P", 4.1, 0, 0, 0, 0, 0, 1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes a piece of chicken and eats it.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes a piece of chicken and eats it.", ReturnName(playerid, 0));
     }
     return 1;
 }
@@ -16358,7 +16214,7 @@ public OnPlayerGiveDamage(playerid, damagedid, Float:amount, weaponid, bodypart)
             ApplyAnimation(damagedid, "CRACK", "crckdeth2", 4.1, 1, 0, 0, 0, 0, 1);
             ShowPlayerFooter(damagedid, string);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stunned %s with their tazer.", ReturnName(playerid, 0), ReturnName(damagedid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stunned %s with their tazer.", ReturnName(playerid, 0), ReturnName(damagedid, 0));
         }
         if (GetFactionType(playerid) == FACTION_POLICE && PlayerData[playerid][pBeanBag] && PlayerData[damagedid][pStunned] < 1 && weaponid == 25)
         {
@@ -16379,7 +16235,7 @@ public OnPlayerGiveDamage(playerid, damagedid, Float:amount, weaponid, bodypart)
             ApplyAnimation(damagedid, "CRACK", "crckdeth2", 4.1, 1, 0, 0, 0, 0, 1);
             ShowPlayerFooter(damagedid, string);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stunned %s with their beanbag shotgun.", ReturnName(playerid, 0), ReturnName(damagedid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stunned %s with their beanbag shotgun.", ReturnName(playerid, 0), ReturnName(damagedid, 0));
         }
 	}
 	return 1;
@@ -16610,7 +16466,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 17);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 24:
 			    {
@@ -16621,7 +16477,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 7);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 25:
 			    {
@@ -16632,7 +16488,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 8);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and pumps it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and pumps it.", ReturnName(playerid, 0));
 				}
 				case 28:
 			    {
@@ -16643,7 +16499,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 50);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 29:
        			{
@@ -16654,7 +16510,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 30);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 32:
 			    {
@@ -16665,7 +16521,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 50);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 30:
 			    {
@@ -16676,7 +16532,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 30);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 31:
 			    {
@@ -16687,7 +16543,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 31);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 				case 33:
 			    {
@@ -16698,7 +16554,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 5);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 		        case 34:
 			    {
@@ -16709,7 +16565,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					PlayReloadAnimation(playerid, weaponid);
 
 					GiveWeaponToPlayer(playerid, weaponid, 5);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s holds onto the weapon and cocks it.", ReturnName(playerid, 0));
 				}
 			}
 			return 1;
@@ -16730,7 +16586,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
       			Inventory_Add(playerid, "Magazine", 2039);
 
 		    HoldWeapon(playerid, 0);
-		    return SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts away their empty weapon.", ReturnName(playerid, 0));
+		    return SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts away their empty weapon.", ReturnName(playerid, 0));
 		}
 		if (PlayerData[playerid][pLoadCrate])
 		{
@@ -16750,7 +16606,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				CoreVehicles[i][vehLoadType] = PlayerData[playerid][pLoadType];
 
                 ApplyAnimation(playerid, "CARRY", "putdwn", 4.0, 0, 0, 0, 0, 0);
-                SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s drops a crate into the back of the %s.", ReturnName(playerid, 0), ReturnVehicleName(i));
+                SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s drops a crate into the back of the %s.", ReturnName(playerid, 0), ReturnVehicleName(i));
 				PlayerData[playerid][pLoadCrate] = 0;
 				RemovePlayerAttachedObject(playerid, 4);
 				SetPlayerSpecialAction(playerid, SPECIAL_ACTION_NONE);
@@ -16799,7 +16655,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				CoreVehicles[i][vehTrash]++;
 
 				RemovePlayerAttachedObject(playerid, 4);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has loaded a trash bag into the Trashmaster.", ReturnName(playerid, 0));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has loaded a trash bag into the Trashmaster.", ReturnName(playerid, 0));
 
 				PlayerData[playerid][pCarryTrash] = 0;
 				break;
@@ -16817,7 +16673,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				SetPlayerSpecialAction(playerid, SPECIAL_ACTION_NONE);
 
 				RemovePlayerAttachedObject(playerid, 4);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has loaded a crate into the %s.", ReturnName(playerid, 0), ReturnVehicleName(i));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has loaded a crate into the %s.", ReturnName(playerid, 0), ReturnVehicleName(i));
 
 				CrateData[PlayerData[playerid][pCarryCrate]][cratePos][0] = 0.0;
 				CrateData[PlayerData[playerid][pCarryCrate]][cratePos][1] = 0.0;
@@ -16854,13 +16710,13 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
     	   				GiveWeaponToPlayer(playerid, DroppedItems[id][droppedWeapon], DroppedItems[id][droppedAmmo]);
 
     	                Item_Delete(id);
-						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a %s.", ReturnName(playerid, 0), ReturnWeaponName(DroppedItems[id][droppedWeapon]));
+						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a %s.", ReturnName(playerid, 0), ReturnWeaponName(DroppedItems[id][droppedWeapon]));
 					}
 					else if (PickupItem(playerid, id))
 					{
 			    		format(string, sizeof(string), "~g~%s~w~ added to inventory!", DroppedItems[id][droppedItem]);
 			    		ShowPlayerFooter(playerid, string);
-						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a \"%s\".", ReturnName(playerid, 0), DroppedItems[id][droppedItem]);
+						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a \"%s\".", ReturnName(playerid, 0), DroppedItems[id][droppedItem]);
 					}
 					else
 						SendErrorMessage(playerid, "You don't have any room in your inventory.");
@@ -16898,7 +16754,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					    GiveMoney(playerid, -3);
 					    ApplyAnimation(playerid, "DEALER", "shop_pay", 4.0, 0, 0, 0, 0, 0);
 
-					    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has purchased a burger from the vendor for $3.", ReturnName(playerid, 0));
+					    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has purchased a burger from the vendor for $3.", ReturnName(playerid, 0));
 						ShowPlayerFooter(playerid, "Your ~p~burger~w~ was added to your inventory.");
 					}
 				}
@@ -16922,7 +16778,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 					    GiveMoney(playerid, -2);
 					    ApplyAnimation(playerid, "VENDING", "VEND_USE", 4.0, 0, 0, 0, 0, 0);
 
-					    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has purchased a soda from the vendor for $2.", ReturnName(playerid, 0));
+					    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has purchased a soda from the vendor for $2.", ReturnName(playerid, 0));
 						ShowPlayerFooter(playerid, "Your ~p~soda~w~ was added to your inventory.");
 					}
 				}
@@ -16931,7 +16787,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 		if (PlayerData[playerid][pRangeBooth] != -1)
 		{
 		    Booth_Leave(playerid);
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has left the shooting booth.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has left the shooting booth.", ReturnName(playerid, 0));
 		}
 		else for (new i = 0; i < MAX_BOOTHS; i ++) if (!g_BoothUsed[i] && IsPlayerInRangeOfPoint(playerid, 1.5, arrBoothPositions[i][0], arrBoothPositions[i][1], arrBoothPositions[i][2]))
 		{
@@ -16947,7 +16803,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][81], "~b~Targets:~w~ 0/10");
 
 			PlayerTextDrawShow(playerid, PlayerData[playerid][pTextdraws][81]);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has entered the shooting booth.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has entered the shooting booth.", ReturnName(playerid, 0));
 			return 1;
 		}
 		if (IsPlayerInRangeOfPoint(playerid, 2.5, -204.5648, -1736.1201, 675.7687) && PlayerData[playerid][pHospitalInt] != -1)
@@ -17124,7 +16980,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				{
 			    	PlayerData[playerid][pBankTask] = 1;
 			    	GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~w~Loading Textures", 1000, 3);
-			    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "Banking", "This is one of the banks of San Andreas. You can manage your bank accounts here.\nEach player has a standard bank account and a savings account for extra funds.\n\nYou can type /bank inside this building to manage either of your bank accounts.\nIf you are near any ATM machine, you can use the /atm command for your banking needs.", "Close", "");
+			    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "Banking", "This is one of the banks of Vice City. You can manage your bank accounts here.\nEach player has a standard bank account and a savings account for extra funds.\n\nYou can type /bank inside this building to manage either of your bank accounts.\nIf you are near any ATM machine, you can use the /atm command for your banking needs.", "Close", "");
 
 				    if (IsTaskCompleted(playerid))
 					{
@@ -17135,7 +16991,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				else if (EntranceData[id][entranceType] == 1 && !PlayerData[playerid][pTestTask])
 				{
 			    	PlayerData[playerid][pTestTask] = 1;
-			    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "DMV", "The DMV is where a player can attempt the driving test to obtain their licenses.\nYou must avoid hitting obstacles, damaging the vehicle or speeding during the test.\n\nIt is legally required to possess a driving license to drive in San Andreas.\nDriving without a license can result in several consequences by law enforcement.", "Close", "");
+			    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "DMV", "The DMV is where a player can attempt the driving test to obtain their licenses.\nYou must avoid hitting obstacles, damaging the vehicle or speeding during the test.\n\nIt is legally required to possess a driving license to drive in Vice City.\nDriving without a license can result in several consequences by law enforcement.", "Close", "");
 
 				    if (IsTaskCompleted(playerid))
 					{
@@ -17189,7 +17045,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
             PlayerData[playerid][pCarryCrate] = id;
             SetPlayerAttachedObject(playerid, 4, 964, 1, -0.157020, 0.413313, 0.000000, 0.000000, 88.000000, 180.000000, 0.500000, 0.500000, 0.500000);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s reaches down and picks up a crate.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s reaches down and picks up a crate.", ReturnName(playerid, 0));
 			SendServerMessage(playerid, "You have picked up a crate. Load it in a vehicle using 'N'.");
 
 			DestroyDynamicObject(CrateData[id][crateObject]);
@@ -17205,7 +17061,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 		    ApplyAnimation(playerid, "CARRY", "putdwn", 4.0, 0, 0, 0, 0, 0);
 
 			Crate_Drop(playerid, 1.5);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped the crate.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped the crate.", ReturnName(playerid, 0));
 
 			SetPlayerSpecialAction(playerid, SPECIAL_ACTION_NONE);
 			return 1;
@@ -18115,14 +17971,14 @@ public OnPlayerExitVehicle(playerid, vehicleid)
 	    Seatbelt[playerid] = 0;
 	    if(IsABike(GetPlayerVehicleID(playerid)))
 		{
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s grabs their helmet and removes it from their head.", ReturnName(playerid, 0));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s grabs their helmet and removes it from their head.", ReturnName(playerid, 0));
             SendClientMessageEx(playerid, COLOR_WHITE, "You have taken off your helmet.");
             ShowPlayerFooter(playerid, "You have ~r~removed~w~ your helmet!");
             RemovePlayerAttachedObject(playerid, 3);
         }
         else
 		{
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s clicks the seatbelt button unbuckling their seatbelt.", ReturnName(playerid, 0));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s clicks the seatbelt button unbuckling their seatbelt.", ReturnName(playerid, 0));
             SendClientMessageEx(playerid, COLOR_WHITE, "You have taken off your seatbelt.");
             ShowPlayerFooter(playerid, "You have ~r~removed~w~ your seatbelt!");
         }
@@ -18718,19 +18574,19 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
 			}
 			if (IsDoorVehicle(vehicleid) && !Inventory_HasItem(playerid, "Car License") && !PlayerData[playerid][pDrivingTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a license to operate this vehicle.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Vehicle]:{FFFFFF} You do not have a license.");
 			}
 			if (IsAMotorbike(vehicleid) && !Inventory_HasItem(playerid, "Motorbike License") && !PlayerData[playerid][pBikeTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a license to operate this motorcycle.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Motorcycle]:{FFFFFF} You do not have a license.");
 			}
 			if (IsAPlane(vehicleid) && !Inventory_HasItem(playerid, "Airplane License") && !PlayerData[playerid][pDrivingTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a pilot's license.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Pilot]:{FFFFFF} You do not have a pilot's license.");
 			}
 			if (IsAHelicopter(vehicleid) && !Inventory_HasItem(playerid, "Helicopter License") && !PlayerData[playerid][pDrivingTest])
 			{
-   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Reminder]:{FFFFFF} You do not have a helicopter license.");
+   				SendClientMessage(playerid, COLOR_LIGHTRED, "[Helicopter]:{FFFFFF} You do not have a helicopter license.");
 			}
 		}
 	    if (IsSpeedoVehicle(vehicleid) && !PlayerData[playerid][pDisableSpeedo]) for (new i = 34; i < 39; i ++) {
@@ -19400,12 +19256,20 @@ public OnGameModeExit()
 	return 1;
 }
 
-CMD:gettickrate(playerid)
+CMD:gettickrate(playerid, params[])
 {
     new string[128];
     format(string, sizeof(string), "Server tickrate: %i", GetServerTickRate());
     SendClientMessage(playerid, -1, string);
     return 1;
+}
+
+CMD:getcam(playerid, params[])
+{
+	new Float:x, Float:y, Float:z;
+    GetPlayerCameraPos(playerid, x, y, z);
+
+    printf("The camera is looking at %f,%f,%f.", x, y, z);
 }
 
 forward WeatherRotator();
@@ -19694,7 +19558,7 @@ public OnPlayerText(playerid, text[])
 	if(PlayerData[playerid][pNewsGuest] != INVALID_PLAYER_ID && GetFactionType(PlayerData[playerid][pNewsGuest]) == FACTION_NEWS && IsPlayerInAnyVehicle(playerid) && IsNewsVehicle(GetPlayerVehicleID(playerid)))
 	{
 	    foreach (new i : Player) if (!PlayerData[i][pDisableBC]) {
-	  		SendClientMessageEx(i, COLOR_LIGHTGREEN, "[NEWS] Guest %s: %s", ReturnName(playerid, 2), text);
+	  		SendClientMessageEx(i, COLOR_LIGHTGREEN, "[News] Guest %s: %s", ReturnName(playerid, 2), text);
 		}
 	   	return 0;
    	}
@@ -19707,7 +19571,7 @@ public OnPlayerText(playerid, text[])
 
 		if (IsPlayerOnPhone(playerid))
 		{
-			SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "[Phone] %s says: %s", ReturnName(playerid, 2), text);
+			SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "[Phone]: %s says: %s", ReturnName(playerid, 2), text);
 		}
 		else if (PlayerData[playerid][pAccent] != 0 && !IsPlayerOnPhone(playerid) && !IsPlayerInAnyVehicle(playerid))
 		{
@@ -19742,20 +19606,20 @@ public OnPlayerText(playerid, text[])
 				if (!strcmp(text, "Police", true))
 				{
 				    PlayerData[playerid][pEmergency] = 2;
-				    SendClientMessage(playerid, COLOR_RADIO, "[DISPATCHER]:{FFFFFF} You've been dispatched to the police department. What is your location?");
+				    SendClientMessage(playerid, COLOR_RADIO, "[Dispatch]:{FFFFFF} You've been dispatched to the police department. What is your location?");
 				}
 				else if (!strcmp(text, "FD", true))
 				{
 				    PlayerData[playerid][pEmergency] = 4;
-				    SendClientMessage(playerid, COLOR_HOSPITAL, "[DISPATCHER]:{FFFFFF} You've been dispatched to the Fire Department HQ. What is your location?");
+				    SendClientMessage(playerid, COLOR_HOSPITAL, "[Dispatch]:{FFFFFF} You've been dispatched to the Fire Department HQ. What is your location?");
 				}
 				else if (!strcmp(text, "Both", true))
 				{
 				    PlayerData[playerid][pEmergency] = 2;
 					PlayerData[playerid][pEmergencyBoth] = 1;
-				    SendClientMessage(playerid, COLOR_RADIO, "[DISPATCHER]:{FFFFFF} Your call will be sent to both the police department and fire department. What is your location?");
+				    SendClientMessage(playerid, COLOR_RADIO, "[Dispatch]:{FFFFFF} Your call will be sent to both the police department and fire department. What is your location?");
 				}
-				else SendClientMessage(playerid, COLOR_LIGHTBLUE, "[DISPATCHER]:{FFFFFF} Sorry, I don't understand. Please repeat.\"Police\", \"FD\" or \"Both\"?");
+				else SendClientMessage(playerid, COLOR_LIGHTBLUE, "[Dispatch]:{FFFFFF} Sorry, I don't understand. Please repeat.\"Police\", \"FD\" or \"Both\"?");
 			}
 			case 2:
 			{
@@ -19763,7 +19627,7 @@ public OnPlayerText(playerid, text[])
 				strcat(textmsg, text);
 				EmergencyCallsData[playerid][eCallLocation] = textmsg;
 				PlayerData[playerid][pEmergency] = 3;
-				SendClientMessage(playerid, COLOR_RADIO, "[DISPATCHER]:{FFFFFF} Ok, please describe your emergency.");
+				SendClientMessage(playerid, COLOR_RADIO, "[Dispatch]:{FFFFFF} Ok, please describe your emergency.");
 			}
 			case 3:
 			{
@@ -19776,7 +19640,7 @@ public OnPlayerText(playerid, text[])
 
 					Niner_Create(playerid, NINER_POLICE, EmergencyCallsData[playerid][eCallLocation], text);
 
-					SendClientMessage(playerid, COLOR_RADIO, "[DISPATCHER]:{FFFFFF} Please stay calm, our units are on the way.");
+					SendClientMessage(playerid, COLOR_RADIO, "[Dispatch]:{FFFFFF} Please stay calm, our units are on the way.");
 				}
 
 				if(PlayerData[playerid][pEmergencyBoth] == 1)
@@ -19793,7 +19657,7 @@ public OnPlayerText(playerid, text[])
 
 					Niner_Create(playerid, NINER_BOTH, EmergencyCallsData[playerid][eCallLocation], text);
 
-					SendClientMessage(playerid, COLOR_RADIO, "[DISPATCHER]:{FFFFFF} units have been dispatched.");
+					SendClientMessage(playerid, COLOR_RADIO, "[Dispatch]:{FFFFFF} units have been dispatched.");
 
 					PlayerData[playerid][pEmergencyBoth] = 0;
 				}
@@ -19808,7 +19672,7 @@ public OnPlayerText(playerid, text[])
 				strcat(textmsg, text);
 				EmergencyCallsData[playerid][eCallLocation] = textmsg;
 				PlayerData[playerid][pEmergency] = 5;
-				SendClientMessage(playerid, COLOR_HOSPITAL, "[DISPATCHER]:{FFFFFF} Ok, please describe your emergency.");
+				SendClientMessage(playerid, COLOR_HOSPITAL, "[Dispatch]:{FFFFFF} Ok, please describe your emergency.");
 			}
 			case 5:
 			{
@@ -19817,7 +19681,7 @@ public OnPlayerText(playerid, text[])
 				SendFactionMessageEx(FACTION_MEDIC, COLOR_HOSPITAL, "LOCATION (%s): %s", GetPlayerLocation(playerid), EmergencyCallsData[playerid][eCallLocation]);
        			SendFactionMessageEx(FACTION_MEDIC, COLOR_HOSPITAL, "DESCRIPTION: %s", text);
 
-			    SendClientMessage(playerid, COLOR_HOSPITAL, "[DISPATCHER]:{FFFFFF} Please stay calm, our units are on the way.");
+			    SendClientMessage(playerid, COLOR_HOSPITAL, "[Dispatch]:{FFFFFF} Please stay calm, our units are on the way.");
 
 				Niner_Create(playerid, NINER_MEDIC, EmergencyCallsData[playerid][eCallLocation], text);
 
@@ -19908,13 +19772,13 @@ public OnPlayerText(playerid, text[])
 		        {
 		            if (GetMoney(playerid) < 500)
 				    {
-    	                SendClientMessage(playerid, COLOR_CYAN, "[DISPATCHER]:{FFFFFF} Sorry, you have insufficient funds to advertise right now.");
+    	                SendClientMessage(playerid, COLOR_CYAN, "[Dispatch]:{FFFFFF} Sorry, you have insufficient funds to advertise right now.");
 					    cmd_hangup(playerid, "\1");
 					}
 					else
 					{
 						PlayerData[playerid][pPlaceAd] = 2;
-						SendClientMessage(playerid, COLOR_CYAN, "[DISPATCHER]:{FFFFFF} Please specify your advertisement and we'll advertise it.");
+						SendClientMessage(playerid, COLOR_CYAN, "[Dispatch]:{FFFFFF} Please specify your advertisement and we'll advertise it.");
 					}
 				}
 			}
@@ -19922,7 +19786,7 @@ public OnPlayerText(playerid, text[])
 			{
 			    if (GetMoney(playerid) < 500)
 			    {
-                    SendClientMessage(playerid, COLOR_CYAN, "[DISPATCHER]:{FFFFFF} Sorry, you have insufficient funds to advertise right now.");
+                    SendClientMessage(playerid, COLOR_CYAN, "[Dispatch]:{FFFFFF} Sorry, you have insufficient funds to advertise right now.");
 				    cmd_hangup(playerid, "\1");
 				}
 				else
@@ -19933,7 +19797,7 @@ public OnPlayerText(playerid, text[])
                     PlayerData[playerid][pAdTime] = 120;
 				    strpack(PlayerData[playerid][pAdvertise], text, 128 char);
 
-        	        SendClientMessage(playerid, COLOR_CYAN, "[DISPATCHER]:{FFFFFF} Your advertisement will be published shortly.");
+        	        SendClientMessage(playerid, COLOR_CYAN, "[Dispatch]:{FFFFFF} Your advertisement will be published shortly.");
 				    cmd_hangup(playerid, "\1");
 				}
 			}
@@ -20293,7 +20157,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 		new name[48];
 		new targetid = PlayerData[playerid][pFrisking];
 		strunpack(name, InventoryData[targetid][index][invItem]);
-		SendClientMessageEx(playerid, 0xf5c542ff, "[FRISKING]:{FFFFFF} Item Name: %s", name);
+		SendClientMessageEx(playerid, 0xf5c542ff, "[Frisk]:{FFFFFF} Item Name: %s", name);
 
 	    if (!IsPlayerNearPlayer(playerid, targetid, 6.0))
 		    return SendErrorMessage(playerid, "The player you were frisking is no longer near you.");
@@ -20340,7 +20204,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 		        		House_AddItem(id, name, InventoryData[playerid][index][invModel], 1);
 		        		Inventory_Remove(playerid, name);
 
-		        		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their house storage.", ReturnName(playerid, 0), name);
+		        		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their house storage.", ReturnName(playerid, 0), name);
 				 		House_ShowItems(playerid, id);
 
 				 		if (!strcmp(name, "Backpack") && backpack != -1)
@@ -20368,7 +20232,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 		        		Car_AddItem(id, name, InventoryData[playerid][index][invModel], 1);
 		        		Inventory_Remove(playerid, name);
 
-		        		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into the trunk.", ReturnName(playerid, 0), name);
+		        		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into the trunk.", ReturnName(playerid, 0), name);
 				 		Car_ShowTrunk(playerid, id);
 
 				 		if (!strcmp(name, "Backpack") && backpack != -1)
@@ -20397,7 +20261,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 					Backpack_Add(GetPlayerBackpack(playerid), name, InventoryData[playerid][index][invModel], 1);
    					Inventory_Remove(playerid, name);
 
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their backpack.", ReturnName(playerid, 0), name);
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their backpack.", ReturnName(playerid, 0), name);
 					Backpack_Open(playerid);
 				}
    				else
@@ -20501,14 +20365,14 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 		SetPlayerColor(playerid, DEFAULT_COLOR);
 		SetPlayerArmour(playerid, 150.0);
 		SetPlayerHealth(playerid, 99.0);
-	  	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s gears up with his Undercover equipment.", ReturnName(playerid, 0));
-	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "**DISPATCH: %s %s is now on Undercover Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	  	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s gears up with his Undercover equipment.", ReturnName(playerid, 0));
+	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on Undercover Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	}
 	if ((response) && (extraid == MODEL_SELECTION_OFFDUTYCLOTHES))
 	{
     	SetPlayerSkin(playerid, modelid);
 		PlayerData[playerid][pSkin] = modelid;
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has changed their clothes.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has changed their clothes.", ReturnName(playerid, 0));
 	}
 	if ((response) && (extraid == MODEL_SELECTION_CLOTHES))
 	{
@@ -20542,14 +20406,14 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 	            PlayerData[playerid][pSkin] = modelid;
 	            SetPlayerSkin(playerid, modelid);
 
-	            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received some clothes.", ReturnName(playerid, 0), FormatNumber(price));
+	            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received some clothes.", ReturnName(playerid, 0), FormatNumber(price));
 			}
 			case 2:
 			{
 			    PlayerData[playerid][pEditType] = 1;
                 PlayerData[playerid][pGlasses] = modelid;
 
-			    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received some glasses.", ReturnName(playerid, 0), FormatNumber(price));
+			    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received some glasses.", ReturnName(playerid, 0), FormatNumber(price));
 				RemovePlayerAttachedObject(playerid, 0);
 
                 SetPlayerAttachedObject(playerid, 0, modelid, 2, 0.094214, 0.044044, -0.007274, 89.675476, 83.514060, 0.000000);
@@ -20560,7 +20424,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 			    PlayerData[playerid][pHat] = modelid;
 			    PlayerData[playerid][pEditType] = 2;
 
-			    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a hat.", ReturnName(playerid, 0), FormatNumber(price));
+			    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a hat.", ReturnName(playerid, 0), FormatNumber(price));
                 RemovePlayerAttachedObject(playerid, 1);
 
 				SetPlayerAttachedObject(playerid, 1, modelid, 2, 0.1565, 0.0273, -0.0002, -7.9245, -1.3224, 15.0999);
@@ -20571,7 +20435,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 			    PlayerData[playerid][pBandana] = modelid;
 			    PlayerData[playerid][pEditType] = 3;
 
-			    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a bandana.", ReturnName(playerid, 0), FormatNumber(price));
+			    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a bandana.", ReturnName(playerid, 0), FormatNumber(price));
 			    RemovePlayerAttachedObject(playerid, 2);
 
 			    SetPlayerAttachedObject(playerid, 2, modelid, 2, 0.099553, 0.044356, -0.000285, 89.675476, 84.277572, 0.000000);
@@ -20699,7 +20563,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 		    return SendErrorMessage(playerid, "There is no model in the selected slot.");
 
   		SetPlayerSkin(playerid, modelid);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has changed their uniform.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has changed their uniform.", ReturnName(playerid, 0));
 	}
 	if ((response) && (extraid == MODEL_SELECTION_WHEELS))
 	{
@@ -20724,7 +20588,7 @@ public ResprayCar(playerid, vehicleid, color)
 	ClearAnimations(playerid);
 
 	SetVehicleColor(vehicleid, color, color);
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has used a can of spray paint on the %s.", ReturnName(playerid, 0), ReturnVehicleName(vehicleid));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has used a can of spray paint on the %s.", ReturnName(playerid, 0), ReturnVehicleName(vehicleid));
 	return 1;
 }
 
@@ -20762,61 +20626,11 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 	{
 		if (!PlayerData[playerid][pCharacter])
 		{
-			if (playertextid == PlayerData[playerid][pTextdraws][2])
-				SelectCharacter(playerid, 1);
 
-			else if (playertextid == PlayerData[playerid][pTextdraws][3])
-				SelectCharacter(playerid, 2);
-
-			else if (playertextid == PlayerData[playerid][pTextdraws][4])
-				SelectCharacter(playerid, 3);
 		}
 		else
 		{
-		    if (playertextid == PlayerData[playerid][pTextdraws][78])
-				SQL_LoadCharacter(playerid, PlayerData[playerid][pCharacter]);
-
-			else if (playertextid == PlayerData[playerid][pTextdraws][79]) {
-			    SendClientMessage(playerid, -1, "If you would like to delete a character contact an administrator on the next steps.");
-				//Dialog_Show(playerid, DeleteChar, DIALOG_STYLE_MSGBOX, "Delete Character", "Warning: Are you sure you wish to delete character \"%s\"?\n\nYou will not be issued a refund for any lost property.", "Confirm", "Cancel", PlayerCharacters[playerid][PlayerData[playerid][pCharacter] - 1]);
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][80]) {
-			    ShowCharacterMenu(playerid);
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][19]) {
-			    CancelSelectTextDraw(playerid);
-			    Dialog_Show(playerid, Gender, DIALOG_STYLE_LIST, "Gender", "Male\nFemale", "Select", "Cancel");
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][20]) {
-			    Dialog_Show(playerid, DateBirth, DIALOG_STYLE_INPUT, "Date of Birth", "Please enter your date of birth below (DD/MM/YYYY):", "Submit", "Cancel");
-			}
-            else if (playertextid == PlayerData[playerid][pTextdraws][21]) {
-			    Dialog_Show(playerid, Origin, DIALOG_STYLE_INPUT, "Origin", "Please enter the geographical origin of your character below:", "Submit", "Cancel");
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][22])
-			{
-			    if (!strlen(PlayerData[playerid][pBirthdate]))
-			        return SendClientMessage(playerid, COLOR_LIGHTRED, "Server: You must specify a birth date.");
-
-				else if (!strlen(PlayerData[playerid][pOrigin]))
-				    return SendClientMessage(playerid, COLOR_LIGHTRED, "Server: You must specify an origin.");
-
-				else
-				{
-				    for (new i = 11; i < 23; i ++) {
-						PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-					}
-                    switch (PlayerData[playerid][pGender])
-                    {
-                        case 1:
-                        	ShowModelSelectionMenu(playerid, "Select Skin", MODEL_SELECTION_SKIN, g_aMaleSkins, sizeof(g_aMaleSkins), -16.0, 0.0, -55.0);
-
-						case 2:
-                       		ShowModelSelectionMenu(playerid, "Select Skin", MODEL_SELECTION_SKIN, g_aFemaleSkins, sizeof(g_aFemaleSkins), -16.0, 0.0, -55.0);
-                    }
-				}
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][26])
+			if (playertextid == PlayerData[playerid][pTextdraws][26])
 			{
 			    static
 					arrGlasses[] = {19300, 19006, 19007, 19008, 19009, 19010, 19011, 19012, 19013, 19014, 19015, 19016, 19017, 19018, 19019, 19020, 19021, 19022, 19023, 19024, 19025, 19026, 19027, 19028, 19029, 19030, 19031, 19032, 19033, 19034, 19035};
@@ -20846,47 +20660,6 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 				}
 				ShowModelSelectionMenu(playerid, "Bandanas", MODEL_SELECTION_BANDANAS, arrBandanas, sizeof(arrBandanas), 0.0, 0.0, 90.0);
 			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][33])
-			{
-			    for (new i = 23; i < 34; i ++) {
-				    PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-				}
-			    for (new i = 0; i < 100; i ++) {
-			        SendClientMessage(playerid, -1, "");
-			    }
-			    CancelSelectTextDraw(playerid);
-			    TogglePlayerControllable(playerid, 1);
-
-				for (new i = 0; i < 100; i ++) {
-		        SendClientMessage(playerid, -1, "");
-				}
-		    	SetDefaultSpawn(playerid);
-				Inventory_Add(playerid, "ID Card", 1581);
-
-			    SetPlayerCheckpoint(playerid, -226.4219, 1408.4594, 27.7734, 0.5);
-			    SendClientMessage(playerid, COLOR_SERVER, "Please make your way towards the item and crouch (pressing 'C').");
-
-				SetPlayerPos(playerid, -226.2436, 1400.4767, 27.7656);
-				SetPlayerFacingAngle(playerid, 0.0000);
-
-				SetPlayerInterior(playerid, 18);
-				SetPlayerVirtualWorld(playerid, (playerid + 2000));
-
-				SetCameraBehindPlayer(playerid);
-				ShowHungerTextdraw(playerid, 1);
-
-				PlayerData[playerid][pThirst] = 80;
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][47])
-			{
-				new
-					string[128];
-
-				CancelSelectTextDraw(playerid);
-
-				format(string, sizeof(string), "%s\n%s\n%s", (!PlayerCharacters[playerid][0][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][0]), (!PlayerCharacters[playerid][1][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][1]), (!PlayerCharacters[playerid][2][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][2]));
-				Dialog_Show(playerid, CharList, DIALOG_STYLE_LIST, "My Characters", string, "Select", "Cancel");
-			}
 			else if (playertextid == PlayerData[playerid][pTextdraws][48])
 			{
 				for (new i = 40; i < 50; i ++)
@@ -20896,41 +20669,6 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 				PlayerData[playerid][pDisplayStats] = false;
 
 				SetTimerEx("OpenInventory", 100, false, "d", playerid);
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][49])
-			{
-				for (new i = 40; i < 50; i ++)
-			        PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-
-				CancelSelectTextDraw(playerid);
-				PlayerData[playerid][pDisplayStats] = false;
-			}
-            else if (playertextid == PlayerData[playerid][pTextdraws][55])
-			{
-			    for (new i = 50; i < 58; i ++)
-			        PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-
-				CancelSelectTextDraw(playerid);
-				PlayerData[playerid][pDisplayStats] = false;
-			}
-            else if (playertextid == PlayerData[playerid][pTextdraws][56])
-			{
-			    for (new i = 40; i < 58; i ++)
-			    {
-			        if (i >= 50)
-				        PlayerTextDrawHide(playerid, PlayerData[playerid][pTextdraws][i]);
-
-					else if (i < 50)
-					    PlayerTextDrawShow(playerid, PlayerData[playerid][pTextdraws][i]);
-			    }
-			    PlayerData[playerid][pDisplayStats] = true;
-			}
-			else if (playertextid == PlayerData[playerid][pTextdraws][57])
-			{
-			    if (PlayerData[playerid][pCharacterMenu] == PlayerData[playerid][pCharacter])
-			        return SendErrorMessage(playerid, "You are playing on this character, you can't delete it.");
-
-                Dialog_Show(playerid, DeleteCharacter, DIALOG_STYLE_MSGBOX, "Delete Character", "Warning: Are you sure you wish to delete character \"%s\"?\n\nYou will not be issued a refund for any lost property.", "Confirm", "Cancel", PlayerCharacters[playerid][PlayerData[playerid][pCharacterMenu] - 1]);
 			}
 		}
 	}
@@ -21171,7 +20909,7 @@ Dialog:GraffitiText(playerid, response, listitem, inputtext[])
 		ShowPlayerFooter(playerid, "You are now spraying your ~g~graffiti.");
 		GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~b~Spraying...~w~ please wait!", 15000, 3);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a can of spray paint and sprays the wall.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a can of spray paint and sprays the wall.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -21217,7 +20955,7 @@ Dialog:Radio(playerid, response, listitem, inputtext[])
 			    new vehicleid = GetPlayerVehicleID(playerid);
 
 				StopVehicleRadio(vehicleid);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has turned off the car radio.", ReturnName(playerid, 0));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has turned off the car radio.", ReturnName(playerid, 0));
 			}
 	    }
 	}
@@ -22086,13 +21824,13 @@ Dialog:PickupItems(playerid, response, listitem, inputtext[])
 				GiveWeaponToPlayer(playerid, DroppedItems[id][droppedWeapon], DroppedItems[id][droppedAmmo]);
 
 				Item_Delete(id);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a %s.", ReturnName(playerid, 0), ReturnWeaponName(DroppedItems[id][droppedWeapon]));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a %s.", ReturnName(playerid, 0), ReturnWeaponName(DroppedItems[id][droppedWeapon]));
 			}
 			else if (PickupItem(playerid, id))
 			{
 				format(string, sizeof(string), "~g~%s~w~ added to inventory!", DroppedItems[id][droppedItem]);
  				ShowPlayerFooter(playerid, string);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a \"%s\".", ReturnName(playerid, 0), DroppedItems[id][droppedItem]);
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a \"%s\".", ReturnName(playerid, 0), DroppedItems[id][droppedItem]);
 			}
 			else
 				SendErrorMessage(playerid, "You don't have any room in your inventory.");
@@ -22402,12 +22140,12 @@ Dialog:RackWeapons(playerid, response, listitem, inputtext[])
 			Rack_Save(id);
 
 			ApplyAnimation(playerid, "WEAPONS", "SHP_Ar_Lift", 4.1, 0, 0, 0, 0, 0, 1);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a %s on the weapon rack.", ReturnName(playerid, 0), ReturnWeaponName(RackData[id][rackWeapons][listitem]));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a %s on the weapon rack.", ReturnName(playerid, 0), ReturnWeaponName(RackData[id][rackWeapons][listitem]));
 	    }
 	    else
 	    {
 	        GiveWeaponToPlayer(playerid, RackData[id][rackWeapons][listitem], RackData[id][rackAmmo][listitem]);
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a %s from the weapon rack.", ReturnName(playerid, 0), ReturnWeaponName(RackData[id][rackWeapons][listitem]));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a %s from the weapon rack.", ReturnName(playerid, 0), ReturnWeaponName(RackData[id][rackWeapons][listitem]));
 
             RackData[id][rackWeapons][listitem] = 0;
 			RackData[id][rackAmmo][listitem] = 0;
@@ -22431,14 +22169,14 @@ Dialog:TakeItems(playerid, response, listitem, inputtext[])
 	    if (!strcmp(inputtext, "Take Weapons")) {
 	        ResetWeapons(PlayerData[playerid][pTakeItems]);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's weapons.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's weapons.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Seeds")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Marijuana Seeds", -1);
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Cocaine Seeds", -1);
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Heroin Opium Seeds", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's drug seeds.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's drug seeds.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Drugs")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Marijuana", -1);
@@ -22446,44 +22184,44 @@ Dialog:TakeItems(playerid, response, listitem, inputtext[])
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Heroin", -1);
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Steroids", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's drugs.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's drugs.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Radio")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Portable Radio", -1);
 
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's portable radio.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's portable radio.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Car License")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Car License", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's Car license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's Car license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Truck License")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Truck License", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's Truck license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's Truck license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Motorbike License")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Motorbike License", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's Motorbike license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's Motorbike license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Airplane License")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Airplane License", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's Airplane license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's Airplane license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Helicopter License")) {
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Helicopter License", -1);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's Helicopter license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's Helicopter license.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 		else if (!strcmp(inputtext, "Take Backpack")) {
 		    Backpack_Delete(GetPlayerBackpack(PlayerData[playerid][pTakeItems]));
 		    Inventory_Remove(PlayerData[playerid][pTakeItems], "Backpack", -1);
 
 			SetAccessories(PlayerData[playerid][pTakeItems]);
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has confiscated %s's backpack.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has confiscated %s's backpack.", ReturnName(playerid, 0), ReturnName(PlayerData[playerid][pTakeItems], 0));
 		}
 	}
 	return 1;
@@ -22662,7 +22400,7 @@ Dialog:GiveItem(playerid, response, listitem, inputtext[])
 				SetAccessories(userid);
 			    Inventory_Remove(playerid, "Backpack");
 			}
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a \"%s\" and gives it to %s.", ReturnName(playerid, 0), string, ReturnName(userid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a \"%s\" and gives it to %s.", ReturnName(playerid, 0), string, ReturnName(userid, 0));
 		    SendServerMessage(userid, "%s has given you \"%s\" (added to inventory).", ReturnName(playerid, 0), string);
 
 			Inventory_Remove(playerid, string);
@@ -22702,7 +22440,7 @@ Dialog:GiveQuantity(playerid, response, listitem, inputtext[])
 	    if (id == -1)
 			return SendErrorMessage(playerid, "That player doesn't have anymore inventory slots.");
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a \"%s\" and gives it to %s.", ReturnName(playerid, 0), string, ReturnName(userid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a \"%s\" and gives it to %s.", ReturnName(playerid, 0), string, ReturnName(userid, 0));
 	    SendServerMessage(userid, "%s has given you \"%s\" (added to inventory).", ReturnName(playerid, 0), string);
 
 		Inventory_Remove(playerid, string, strval(inputtext));
@@ -22735,7 +22473,7 @@ Dialog:BackpackLoot(playerid, response, listitem, inputtext[])
 			Inventory_Add(playerid, "Backpack", 3026);
 
 			SetAccessories(playerid);
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a backpack.", ReturnName(playerid, 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a backpack.", ReturnName(playerid, 0));
 		}
 		else if ((id = BackpackListed[playerid][listitem]) != -1)
 		{
@@ -22747,7 +22485,7 @@ Dialog:BackpackLoot(playerid, response, listitem, inputtext[])
 			Inventory_Add(playerid, string, BackpackItems[id][bItemModel], BackpackItems[id][bItemQuantity]);
 			Backpack_Remove(BackpackItems[id][bItemBackpack], string, BackpackItems[id][bItemQuantity]);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s reaches inside the backpack and takes a \"%s\".", ReturnName(playerid, 0), string);
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s reaches inside the backpack and takes a \"%s\".", ReturnName(playerid, 0), string);
 		}
 	}
 	return 1;
@@ -22770,7 +22508,7 @@ Dialog:BackpackDeposit(playerid, response, listitem, inputtext[])
 		Backpack_Add(GetPlayerBackpack(playerid), string, InventoryData[playerid][PlayerData[playerid][pInventoryItem]][invModel], amount);
 		Inventory_Remove(playerid, string, amount);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their backpack.", ReturnName(playerid, 0), string);
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their backpack.", ReturnName(playerid, 0), string);
 		Backpack_Open(playerid);
 	}
 	else Backpack_Open(playerid);
@@ -22797,7 +22535,7 @@ Dialog:BackpackTake(playerid, response, listitem, inputtext[])
 		Inventory_Add(playerid, string, BackpackItems[id][bItemModel], amount);
         Backpack_Remove(GetPlayerBackpack(playerid), string, amount);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from their backpack.", ReturnName(playerid, 0), string);
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from their backpack.", ReturnName(playerid, 0), string);
 		Backpack_Open(playerid);
 	}
 	else Backpack_Open(playerid);
@@ -22821,7 +22559,7 @@ Dialog:BackpackOptions(playerid, response, listitem, inputtext[])
 	                Inventory_Add(playerid, string, BackpackItems[id][bItemModel]);
 					Backpack_Remove(GetPlayerBackpack(playerid), string);
 
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from their backpack.", ReturnName(playerid, 0), string);
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from their backpack.", ReturnName(playerid, 0), string);
 					Backpack_Open(playerid);
 	            }
 	            else
@@ -22846,7 +22584,7 @@ Dialog:BackpackOptions(playerid, response, listitem, inputtext[])
 	                Backpack_Add(GetPlayerBackpack(playerid), string, InventoryData[playerid][itemid][invModel]);
 					Inventory_Remove(playerid, string);
 
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their backpack.", ReturnName(playerid, 0), string);
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their backpack.", ReturnName(playerid, 0), string);
 					Backpack_Open(playerid);
 	            }
 	            else
@@ -23662,7 +23400,7 @@ Dialog:NinerOptions(playerid, response, listitem, inputtext[])
 					if(NinerData[i][ninerID] == cid)
 					{
 						Niner_Clear(playerid, i);
-						SendFactionMessage(factionid, COLOR_RADIOCHAT, "** DISPATCH: %s has cleared a 911 call (CID: %i) **", ReturnName(playerid, 0), cid);
+						SendFactionMessage(factionid, COLOR_RADIOCHAT, "[Dispatch]: %s has cleared a 911 call (CID: %i) **", ReturnName(playerid, 0), cid);
 						found = 1;
 						break;
 					}
@@ -23718,7 +23456,7 @@ Dialog:NinerEditNotes(playerid, response, listitem, inputtext[])
 		new query[210];
 		format(query, sizeof(query), "UPDATE `911calls` SET `copnotes` = '%s' WHERE `cid` = %d", SQL_ReturnEscaped(inputtext), cid);
 		mysql_tquery(g_iHandle, query);
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIOCHAT, "[DISPATCH]: %s has edited the additional notes for a 911 call. (cid: %d)", ReturnName(playerid, 0), cid);
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIOCHAT, "[Dispatch]: %s has edited the additional notes for a 911 call. (cid: %d)", ReturnName(playerid, 0), cid);
 		new titlestring[80];
 		format(titlestring, sizeof(titlestring), "CALL ID: %d - Options", cid);
 		Dialog_Show(playerid, NinerOptions, DIALOG_STYLE_LIST, titlestring, "Clear Call\nEdit Additional Notes", "Select", "Back");
@@ -24025,8 +23763,8 @@ Dialog:Locker(playerid, response, listitem, inputtext[])
 	                    SetPlayerArmour(playerid, 100.0);
 
 	                    SetFactionColor(playerid);
-	                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has clocked in and is now on duty.", ReturnName(playerid, 0));
-	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "**DISPATCH: %s %s is now On Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has clocked in and is now on duty.", ReturnName(playerid, 0));
+	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now On Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	                }
 	                else
 	                {
@@ -24036,8 +23774,8 @@ Dialog:Locker(playerid, response, listitem, inputtext[])
 	                    SetPlayerColor(playerid, DEFAULT_COLOR);
 	                    SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
 
-	                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has clocked out and is now off duty.", ReturnName(playerid, 0));
-	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "**DISPATCH: %s %s is now Off Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has clocked out and is now off duty.", ReturnName(playerid, 0));
+	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now Off Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	                }
 				}
 				case 1:
@@ -24160,7 +23898,7 @@ Dialog:TrunkWeapons(playerid, response, listitem, inputtext[])
 	            return SendErrorMessage(playerid, "You have this weapon equipped already.");
 
 	        GiveWeaponToPlayer(playerid, weaponid, ammo);
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s reaches inside the trunk and grabs a %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s reaches inside the trunk and grabs a %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 
 			if (GetFactionType(playerid) == FACTION_GANG_DRUGS || GetFactionType(playerid) == FACTION_GANG_GUNS)
 		    {
@@ -24183,7 +23921,7 @@ Dialog:TrunkWeapons(playerid, response, listitem, inputtext[])
 		        Faction_Save(factionid);
 
                 ResetWeapon(playerid, weaponid);
-		        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a %s and stores it inside the trunk.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+		        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a %s and stores it inside the trunk.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 			}
 			else
 			{
@@ -24216,7 +23954,7 @@ Dialog:LockerWeapons(playerid, response, listitem, inputtext[])
 	            return SendErrorMessage(playerid, "You have this weapon equipped already.");
 
 	        GiveWeaponToPlayer(playerid, weaponid, ammo);
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s reaches inside the locker and equips a %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s reaches inside the locker and equips a %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 
 			if (GetFactionType(playerid) == FACTION_GANG_DRUGS || GetFactionType(playerid) == FACTION_GANG_GUNS)
 		    {
@@ -24239,7 +23977,7 @@ Dialog:LockerWeapons(playerid, response, listitem, inputtext[])
 		        Faction_Save(factionid);
 
                 ResetWeapon(playerid, weaponid);
-		        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a %s and stores it in the locker.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+		        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a %s and stores it in the locker.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 			}
 			else
 			{
@@ -24530,13 +24268,13 @@ Dialog:RestrictedFrequencies(playerid, response, listitem, inputtext[])
 	    switch (listitem)
 	    {
 	        case 0:
-	            Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_MSGBOX, "Police Department", "The Radio Frequency of the Police Department is 911. (912 for SWAT)", "Close", "Back");
+	            Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_MSGBOX, "Police Department", "The Radio Frequency of the police department is 911. (912 for SWAT)", "Close", "Back");
 
 			case 1:
-	            Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_MSGBOX, "Fire Department", "The Radio Frequency of the Fire Department is 913.", "Close", "Back");
+	            Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_MSGBOX, "Fire Department", "The Radio Frequency of the fire department is 913.", "Close", "Back");
 
    			case 2:
-	            Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_MSGBOX, "San Andreas Government", "The Radio Frequency of the San Andreas Government is 914.", "Close", "Back");
+	            Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_MSGBOX, "Government", "The Radio Frequency of the government is 914.", "Close", "Back");
 
 	    }
 	}
@@ -24602,7 +24340,7 @@ Dialog:Crates(playerid, response, listitem, inputtext[])
             SetPlayerAttachedObject(playerid, 4, 964, 1, -0.157020, 0.413313, 0.000000, 0.000000, 88.000000, 180.000000, 0.500000, 0.500000, 0.500000);
             SetPlayerSpecialAction(playerid, SPECIAL_ACTION_CARRY);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes a crate out of the vehicle.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes a crate out of the vehicle.", ReturnName(playerid, 0));
 			SendServerMessage(playerid, "You have taken a %s crate out of the vehicle.", Crate_GetType(CrateData[id][crateType]));
 		}
 	}
@@ -24855,7 +24593,7 @@ Dialog:TextMessage(playerid, response, listitem, inputtext[])
 		SendClientMessageEx(playerid, COLOR_YELLOW, "[TEXT]: %s - %s (%d)", inputtext, ReturnName(playerid, 0), PlayerData[playerid][pPhone]);
 
         PlayerPlaySoundEx(targetid, 21001);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their phone and sends a text.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their phone and sends a text.", ReturnName(playerid, 0));
 		RemovePlayerAttachedObject(playerid,4);
 		SetPlayerSpecialAction(playerid,SPECIAL_ACTION_STOPUSECELLPHONE);
 	}
@@ -24900,14 +24638,14 @@ Dialog:MyPhone(playerid, response, listitem, inputtext[])
 			        	CancelCall(playerid);
 					}
 					PlayerData[playerid][pPhoneOff] = 1;
-			        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has powered off their cellphone.", ReturnName(playerid, 0));
+			        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has powered off their cellphone.", ReturnName(playerid, 0));
 					RemovePlayerAttachedObject(playerid,4);
 					SetPlayerSpecialAction(playerid,SPECIAL_ACTION_STOPUSECELLPHONE);
 				}
 				else
 				{
 				    PlayerData[playerid][pPhoneOff] = 0;
-			        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has powered on their cellphone.", ReturnName(playerid, 0));
+			        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has powered on their cellphone.", ReturnName(playerid, 0));
 					RemovePlayerAttachedObject(playerid,4);
 					SetPlayerSpecialAction(playerid,SPECIAL_ACTION_STOPUSECELLPHONE);
 				}
@@ -24963,7 +24701,7 @@ Dialog:FurnitureList(playerid, response, listitem, inputtext[])
 				    if (item == -1)
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
-				    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up \"%s\".", ReturnName(playerid, 0), FurnitureData[PlayerData[playerid][pEditFurniture]][furnitureName]);
+				    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up \"%s\".", ReturnName(playerid, 0), FurnitureData[PlayerData[playerid][pEditFurniture]][furnitureName]);
 				    SendServerMessage(playerid, "You have picked up your \"%s\". The item was added to your inventory.", FurnitureData[PlayerData[playerid][pEditFurniture]][furnitureName]);
 
 				    Furniture_Delete(PlayerData[playerid][pEditFurniture]);
@@ -25017,7 +24755,7 @@ Dialog:Trunk(playerid, response, listitem, inputtext[])
 	            CarData[carid][carAmmo][listitem] = GetPlayerAmmo(playerid);
 
 	            ResetWeapon(playerid, CarData[carid][carWeapons][listitem]);
-	            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s stored a %s into the trunk.", ReturnName(playerid, 0), ReturnWeaponName(CarData[carid][carWeapons][listitem]));
+	            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s stored a %s into the trunk.", ReturnName(playerid, 0), ReturnWeaponName(CarData[carid][carWeapons][listitem]));
 
 	            Car_Save(carid);
 				Car_WeaponStorage(playerid, carid);
@@ -25025,7 +24763,7 @@ Dialog:Trunk(playerid, response, listitem, inputtext[])
 			else
 			{
 			    GiveWeaponToPlayer(playerid, CarData[carid][carWeapons][listitem], CarData[carid][carAmmo][listitem]);
-	            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes a %s from the trunk.", ReturnName(playerid, 0), ReturnWeaponName(CarData[carid][carWeapons][listitem]));
+	            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes a %s from the trunk.", ReturnName(playerid, 0), ReturnWeaponName(CarData[carid][carWeapons][listitem]));
 
 	            CarData[carid][carWeapons][listitem] = 0;
 	            CarData[carid][carAmmo][listitem] = 0;
@@ -25533,7 +25271,7 @@ Dialog:Inventory(playerid, response, listitem, inputtext[])
                     Garbage_Save(id);
 
 					Inventory_Remove(playerid, string);
-                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s throws a \"%s\" into the garbage bin.", ReturnName(playerid, 0), string);
+                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s throws a \"%s\" into the garbage bin.", ReturnName(playerid, 0), string);
 
                     format(string, sizeof(string), "[Garbage %d]\n{FFFFFF}Trash Capacity: %d/20", id, GarbageData[id][garbageCapacity]);
                     UpdateDynamic3DTextLabelText(GarbageData[id][garbageText3D], COLOR_DEPARTMENT, string);
@@ -25604,7 +25342,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pPhone] = random(90000) + 10000;
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a cellphone.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a cellphone.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25628,7 +25366,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a GPS System.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a GPS System.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25647,7 +25385,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a can of spray paint.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a can of spray paint.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25671,7 +25409,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					SetAccessories(playerid);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a backpack.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a backpack.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25690,7 +25428,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a bottle of water.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a bottle of water.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25709,7 +25447,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a bottle of soda.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a bottle of soda.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25735,7 +25473,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a portable radio.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a portable radio.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25754,7 +25492,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a can of fuel.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a can of fuel.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25773,7 +25511,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a crowbar.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a crowbar.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25792,7 +25530,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a boombox.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a boombox.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25814,7 +25552,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a mask.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a mask.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25833,7 +25571,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a first aid kit.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a first aid kit.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25852,7 +25590,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a repair kit.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a repair kit.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25871,7 +25609,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a NOS canister.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a NOS canister.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25887,7 +25625,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 5, 1);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a baseball bat.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a baseball bat.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25906,7 +25644,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a box of frozen pizza.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a box of frozen pizza.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25925,7 +25663,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a frozen burger.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a frozen burger.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25944,7 +25682,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a black lighter.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a black lighter.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25963,7 +25701,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a pack of cigarette.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a pack of cigarette.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -25982,7 +25720,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a bottle of painkillers.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a bottle of painkillers.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26010,7 +25748,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a weapon magazine.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a weapon magazine.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26032,7 +25770,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received an ammo cartridge.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received an ammo cartridge.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26054,7 +25792,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received an armored vest.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received an armored vest.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26077,7 +25815,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					Inventory_Add(playerid, "Glock-17", 348);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Glock-17.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Glock-17.", ReturnName(playerid, 0), FormatNumber(price));
      				format(string, sizeof(string), "The weapon has been registered. Serial Number: [%i].", Serial);
 					SendClientMessage(playerid, COLOR_WHITE, string);
 
@@ -26102,7 +25840,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					Inventory_Add(playerid, "Shotgun", 349);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Remington 870.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Remington 870.", ReturnName(playerid, 0), FormatNumber(price));
 					format(string, sizeof(string), "The weapon has been registered. Serial Number: [%i].", Serial);
 					SendClientMessage(playerid, COLOR_WHITE, string);
 
@@ -26127,7 +25865,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					Inventory_Add(playerid, "Rifle", 357);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a M14 Rifle.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a M14 Rifle.", ReturnName(playerid, 0), FormatNumber(price));
      				format(string, sizeof(string), "The weapon has been registered. Serial Number: [%i].", Serial);
 					SendClientMessage(playerid, COLOR_WHITE, string);
 
@@ -26152,7 +25890,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					Inventory_Add(playerid, "Colt 45", 346);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Colt 45.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Colt 45.", ReturnName(playerid, 0), FormatNumber(price));
      				format(string, sizeof(string), "The weapon has been registered. Serial Number: [%i].", Serial);
 					SendClientMessage(playerid, COLOR_WHITE, string);
 
@@ -26177,7 +25915,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					Inventory_Add(playerid, "MP5", 353);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a MP5.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a MP5.", ReturnName(playerid, 0), FormatNumber(price));
      				format(string, sizeof(string), "The weapon has been registered. Serial Number: [%i].", Serial);
 					SendClientMessage(playerid, COLOR_WHITE, string);
 
@@ -26235,7 +25973,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pThirst] = (PlayerData[playerid][pThirst] + 55 > 100) ? (100) : (PlayerData[playerid][pThirst] + 55);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received some water.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received some water.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26251,7 +25989,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pThirst] = (PlayerData[playerid][pThirst] + 44 > 100) ? (100) : (PlayerData[playerid][pThirst] + 44);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received some soda.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received some soda.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26267,7 +26005,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pHunger] = (PlayerData[playerid][pHunger] + 30 > 100) ? (100) : (PlayerData[playerid][pHunger] + 30);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received some french fries.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received some french fries.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26283,7 +26021,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pHunger] = (PlayerData[playerid][pHunger] + 40 > 100) ? (100) : (PlayerData[playerid][pHunger] + 40);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a cheeseburger.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a cheeseburger.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26299,7 +26037,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pHunger] = (PlayerData[playerid][pHunger] + 40 > 100) ? (100) : (PlayerData[playerid][pHunger] + 40);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a chicken burger.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a chicken burger.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26315,7 +26053,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pHunger] = (PlayerData[playerid][pHunger] + 35 > 100) ? (100) : (PlayerData[playerid][pHunger] + 35);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received some chicken nuggets.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received some chicken nuggets.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26331,7 +26069,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					PlayerData[playerid][pHunger] = (PlayerData[playerid][pHunger] + 20 > 100) ? (100) : (PlayerData[playerid][pHunger] + 20);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a salad.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a salad.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26374,7 +26112,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a metal screwdriver.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a metal screwdriver.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26390,7 +26128,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 46, 1);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Parachute.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Parachute.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26406,7 +26144,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 1, 1);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received Brass Knuckles.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received Brass Knuckles.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26425,7 +26163,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Golf Club.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Golf Club.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26441,7 +26179,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 3, 1);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Nightstick.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Nightstick.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26460,7 +26198,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a pocket knife.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a pocket knife.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26479,7 +26217,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Shovel.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Shovel.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26495,7 +26233,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 7, 1);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Pool Cue.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Pool Cue.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26511,7 +26249,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 43, 50);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Camera.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Camera.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26527,7 +26265,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 41, 500);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Spray Can.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Spray Can.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26543,7 +26281,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
 					GiveWeaponToPlayer(playerid, 5, 1);
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a Baseball Bat.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a Baseball Bat.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26568,7 +26306,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a sale document.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a sale document.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26587,7 +26325,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a pen.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a pen.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26615,7 +26353,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a bag of bait.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a bag of bait.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26634,7 +26372,7 @@ Dialog:BusinessBuy(playerid, response, listitem, inputtext[])
         				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 					GiveMoney(playerid, -price);
-					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a fishing rod.", ReturnName(playerid, 0), FormatNumber(price));
+					SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a fishing rod.", ReturnName(playerid, 0), FormatNumber(price));
 
 					BusinessData[bizid][bizProducts]--;
 					BusinessData[bizid][bizVault] += Tax_Percent(price);
@@ -26663,7 +26401,7 @@ Dialog:LotteryNumber(playerid, response, listitem, inputtext[])
 	        PlayerData[playerid][pLotteryB] = 1;
 
 		    GiveMoney(playerid, -BusinessData[bizid][bizPrices][6]);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has paid %s and received a lottery ticket.", ReturnName(playerid, 0), FormatNumber(BusinessData[bizid][bizPrices][6]));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has paid %s and received a lottery ticket.", ReturnName(playerid, 0), FormatNumber(BusinessData[bizid][bizPrices][6]));
 
 			BusinessData[bizid][bizProducts]--;
 			BusinessData[bizid][bizVault] += Tax_Percent(BusinessData[bizid][bizPrices][6]);
@@ -26746,7 +26484,7 @@ Dialog:CarDeposit(playerid, response, listitem, inputtext[])
 			Car_AddItem(carid, string, InventoryData[playerid][PlayerData[playerid][pInventoryItem]][invModel], amount);
 			Inventory_Remove(playerid, string, amount);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into the trunk.", ReturnName(playerid, 0), string);
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into the trunk.", ReturnName(playerid, 0), string);
 			Car_ShowTrunk(playerid, carid);
 		}
 		else Car_ShowTrunk(playerid, carid);
@@ -26778,7 +26516,7 @@ Dialog:CarTake(playerid, response, listitem, inputtext[])
 
 			Car_RemoveItem(carid, string, amount);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from the trunk.", ReturnName(playerid, 0), string);
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from the trunk.", ReturnName(playerid, 0), string);
 			Car_ShowTrunk(playerid, carid);
 		}
 		else Car_ShowTrunk(playerid, carid);
@@ -26859,7 +26597,7 @@ Dialog:TrunkOptions(playerid, response, listitem, inputtext[])
 						}
 			            Car_RemoveItem(carid, string);
 
-			            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from the trunk.", ReturnName(playerid, 0), string);
+			            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from the trunk.", ReturnName(playerid, 0), string);
 						Car_ShowTrunk(playerid, carid);
 			        }
 			        else
@@ -26886,7 +26624,7 @@ Dialog:TrunkOptions(playerid, response, listitem, inputtext[])
 					    Car_AddItem(carid, string, InventoryData[playerid][id][invModel], 1);
 						Inventory_Remove(playerid, string);
 
-						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into the trunk.", ReturnName(playerid, 0), string);
+						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into the trunk.", ReturnName(playerid, 0), string);
 						Car_ShowTrunk(playerid, carid);
 					}
 					else if (InventoryData[playerid][id][invQuantity] > 1) {
@@ -26918,7 +26656,7 @@ Dialog:HouseWeapons(playerid, response, listitem, inputtext[])
 		    {
 				GiveWeaponToPlayer(playerid, HouseData[houseid][houseWeapons][listitem], HouseData[houseid][houseAmmo][listitem]);
 
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from their weapon storage.", ReturnName(playerid, 0), ReturnWeaponName(HouseData[houseid][houseWeapons][listitem]));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from their weapon storage.", ReturnName(playerid, 0), ReturnWeaponName(HouseData[houseid][houseWeapons][listitem]));
 
 				HouseData[houseid][houseWeapons][listitem] = 0;
 				HouseData[houseid][houseAmmo][listitem] = 0;
@@ -26942,7 +26680,7 @@ Dialog:HouseWeapons(playerid, response, listitem, inputtext[])
 	    			return SendErrorMessage(playerid, "You can't store a beanbag shotgun into your safe.");
 
                 ResetWeapon(playerid, weaponid);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their weapon storage.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their weapon storage.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 
 				HouseData[houseid][houseWeapons][listitem] = weaponid;
 				HouseData[houseid][houseAmmo][listitem] = ammo;
@@ -26979,7 +26717,7 @@ Dialog:HouseDeposit(playerid, response, listitem, inputtext[])
 			House_AddItem(houseid, string, InventoryData[playerid][PlayerData[playerid][pInventoryItem]][invModel], amount);
 			Inventory_Remove(playerid, string, amount);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their house storage.", ReturnName(playerid, 0), string);
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their house storage.", ReturnName(playerid, 0), string);
 			House_ShowItems(playerid, houseid);
 		}
 		else House_OpenStorage(playerid, houseid);
@@ -27010,7 +26748,7 @@ Dialog:HouseTake(playerid, response, listitem, inputtext[])
 				return SendErrorMessage(playerid, "You don't have any inventory slots left.");
 
 			House_RemoveItem(houseid, string, amount);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from their house storage.", ReturnName(playerid, 0), string);
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from their house storage.", ReturnName(playerid, 0), string);
 
 			House_ShowItems(playerid, houseid);
 		}
@@ -27042,7 +26780,7 @@ Dialog:HouseWithdrawCash(playerid, response, listitem, inputtext[])
 			House_Save(houseid);
 			House_OpenStorage(playerid, houseid);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has withdrawn %s from their house safe.", ReturnName(playerid, 0), FormatNumber(amount));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has withdrawn %s from their house safe.", ReturnName(playerid, 0), FormatNumber(amount));
 		}
 		else Dialog_Show(playerid, HouseMoney, DIALOG_STYLE_LIST, "Money Safe", "Withdraw from safe\nDeposit into safe", "Select", "Back");
 	}
@@ -27072,7 +26810,7 @@ Dialog:HouseDepositCash(playerid, response, listitem, inputtext[])
 			House_Save(houseid);
 			House_OpenStorage(playerid, houseid);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has deposited %s into their house safe.", ReturnName(playerid, 0), FormatNumber(amount));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has deposited %s into their house safe.", ReturnName(playerid, 0), FormatNumber(amount));
 		}
 		else Dialog_Show(playerid, HouseMoney, DIALOG_STYLE_LIST, "Money Safe", "Withdraw from safe\nDeposit into safe", "Select", "Back");
 	}
@@ -27196,7 +26934,7 @@ Dialog:StorageOptions(playerid, response, listitem, inputtext[])
 						    SetAccessories(playerid);
 						}
 			            House_RemoveItem(houseid, string);
-			            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has taken a \"%s\" from their house storage.", ReturnName(playerid, 0), string);
+			            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has taken a \"%s\" from their house storage.", ReturnName(playerid, 0), string);
 
 						House_ShowItems(playerid, houseid);
 			        }
@@ -27224,7 +26962,7 @@ Dialog:StorageOptions(playerid, response, listitem, inputtext[])
 					    House_AddItem(houseid, string, InventoryData[playerid][id][invModel]);
 						Inventory_Remove(playerid, string);
 
-						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stored a \"%s\" into their house storage.", ReturnName(playerid, 0), string);
+						SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stored a \"%s\" into their house storage.", ReturnName(playerid, 0), string);
 						House_ShowItems(playerid, houseid);
 					}
 					else if (InventoryData[playerid][id][invQuantity] > 1) {
@@ -27703,7 +27441,7 @@ CMD:clearniner(playerid, params[])
 		if(NinerData[i][ninerID] == cid)
 		{
 			Niner_Clear(playerid, i);
-			SendFactionMessage(factionid, COLOR_FACTIONCHAT, "** DISPATCH: %s has cleared a 911 call (CID: %i) **", ReturnName(playerid, 0), cid);
+			SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s has cleared a 911 call (CID: %i) **", ReturnName(playerid, 0), cid);
 			found = 1;
 			break;
 		}
@@ -27733,16 +27471,16 @@ CMD:searchtrunk(playerid, params[])
             return SendErrorMessage(playerid, "This vehicle doesn't have a trunk.");
 
         if (CarData[id][carLocked])
-            return SendErrorMessage(playerid, "The vehicle's trunk is locked, use (/vram).");
+            return SendErrorMessage(playerid, "The vehicle's trunk is locked, use (/vbreach).");
 
         Car_ShowTrunk(playerid, id);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s looks inside the vehicle's trunk.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s looks inside the vehicle's trunk.", ReturnName(playerid, 0));
     }
     else SendErrorMessage(playerid, "You aren't next to any vehicle.");
     return 1;
 }
 
-CMD:vram(playerid, params[])
+CMD:vbreach(playerid, params[])
 {
     new
         id = -1;
@@ -27755,7 +27493,7 @@ CMD:vram(playerid, params[])
             return SendErrorMessage(playerid, "You must exit the vehicle first.");
 
         if (!IsDoorVehicle(CarData[id][carVehicle]))
-            return SendErrorMessage(playerid, "You cannot /vram this vehicle.");
+            return SendErrorMessage(playerid, "You cannot /vbreach this vehicle.");
 
         if (!CarData[id][carLocked])
             return SendErrorMessage(playerid, "This vehicle isn't locked.");
@@ -27772,7 +27510,7 @@ CMD:vram(playerid, params[])
 
 	    GetVehicleParamsEx(CarData[id][carVehicle], engine, lights, alarm, doors, bonnet, boot, objective);
 		SetVehicleParamsEx(CarData[id][carVehicle], engine, lights, alarm, 0, bonnet, boot, objective);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s breaks the vehicle's window and unlocks it from inside.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s breaks the vehicle's window and unlocks it from inside.", ReturnName(playerid, 0));
     }
     else SendErrorMessage(playerid, "You aren't next to any vehicle.");
     return 1;
@@ -28020,7 +27758,7 @@ CMD:setforsale(playerid, params[])
 		Attach3DTextLabelToVehicle(vehicle3Dtext[vehicleid], vehicleid, 0.0, -1.5, 0.6);
 		vehiclecallsign[vehicleid] = 1;
 		Inventory_Remove(playerid, "Sale Documents");
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s filled the sale information document and put it on the back window.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s filled the sale information document and put it on the back window.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -28067,7 +27805,7 @@ CMD:rules(playerid, params[])
 
 CMD:rules(playerid, params[])
 {
-	ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Server Rules", "Find the server rules on our UCP "SERVER_URL"", "Accept", "");
+	ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Server Rules", "Find the server rules on our UCP \n"SERVER_URL"", "Ok", "");
 	return 1;
 }
 
@@ -28609,17 +28347,18 @@ CMD:w(playerid, params[])
 
 CMD:help(playerid, params[])
 {
-
-    SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/settings, /lastlogged, /username, /properties, /support, /cancelsupport, /tog, /stats, /report, /acc.");
-    SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/inventory, /switch, /search, /searchbp, /approve, /faq, /sell, /paint, /drink, /bank, /cook, /vest, /ammo, /unequip.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/usekit, /id, /drop, /flist, /crates, /fill, /pay, /gps, /open, /usedrug, /breakcuffs, /backpack, /invoices, /tickets.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/boombox, /disablecp, /shakehand, /showlicenses, /frisk, /toghud, /passwep, /setradio, /picklock, /resetvw.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/buyfstyle, /admins, /bomb, /plantbomb, /detonate, /mywarnings, /holster, /unholster");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/myclothes, /changeclothes, /buyclothes, /myaccent, /tabbed.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/ooc, /b, /w, /s, /f, /l, /pilotm, /lcc (local chat clear).");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/phone, /call, /pickup, /hangup, /text.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Help]: {FFFFFF}/r, /channel, /bank, /atm, /registercard");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Sections]: {FFFFFF}/help, /factionhelp, /jobhelp, /animhelp, /premiumhelp, /propertyhelp, /carhelp");
+	new string [2048];
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/settings, /lastlogged, /username, /properties, /support, /cancelsupport, /tog, /stats, /report, /acc.\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/inventory, /switch, /search, /searchbp, /approve, /faq, /sell, /paint, /drink, /bank, /cook, /vest, /ammo, /unequip.\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/usekit, /id, /drop, /flist, /crates, /fill, /pay, /gps, /open, /usedrug, /breakcuffs, /backpack, /invoices, /tickets..\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/boombox, /disablecp, /shakehand, /showlicenses, /frisk, /toghud, /passwep, /setradio, /picklock, /resetvw.\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/buyfstyle, /admins, /bomb, /plantbomb, /detonate, /mywarnings, /holster, /unholster\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/myclothes, /changeclothes, /buyclothes, /myaccent, /tabbed.\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/ooc, /b, /w, /s, /f, /l, /pilotm, /lcc (local chat clear).\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/phone, /call, /pickup, /hangup, /text.\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/r, /channel, /bank, /atm, /registercard\n");
+	strcat(string, "[Sections]: {FFFFFF}/help, /factionhelp, /jobhelp, /animhelp, /premiumhelp, /propertyhelp, /carhelp\n");
+	ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Animations", string, "Accept", "");
 	return 1;
 }
 
@@ -28658,13 +28397,20 @@ CMD:factionhelp(playerid, params[])
 {
     if (PlayerData[playerid][pFaction] == -1) return SendErrorMessage(playerid, "You are not authorized to use this command");
 
+	new string [2048];
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/settings, /lastlogged, /username, /properties, /support, /cancelsupport, /tog, /stats, /report, /acc.\n");
+
     if (GetFactionType(playerid) == FACTION_POLICE)
     {
-		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/taser, /cuff, /uncuff, /drag, /detain, /mdc, /arrest, /radio, /dept, /seizeplant.");
-		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/ticket, /undercover, /fingerprint, /impound, /revokeweplic, /grantweplic, /vram, /searchtrunk");
+		strcat(string, "{FF6347}[Law Enforcement]: {FFFFFF}/taser, /cuff, /uncuff, /drag, /detain, /mdc, /jail, /radio, /dept, /seizeplant.\n");
+		strcat(string, "{FF6347}[Law Enforcement]: {FFFFFF}/ticket, /undercover, /fingerprint, /impound, /revokeweplic, /grantweplic, /vbreach, /searchtrunk\n");
+		strcat(string, "{FF6347}[Law Enforcement]: {FFFFFF}/taser, /cuff, /uncuff, /drag, /detain, /mdc, /jail, /radio, /dept, /seizeplant.\n");
+		strcat(string, "{FF6347}[Law Enforcement]: {FFFFFF}/taser, /cuff, /uncuff, /drag, /detain, /mdc, /jail, /radio, /dept, /seizeplant.\n");
+		strcat(string, "{FF6347}[Law Enforcement]: {FFFFFF}/taser, /cuff, /uncuff, /drag, /detain, /mdc, /jail, /radio, /dept, /seizeplant.\n");
+		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/ticket, /undercover, /fingerprint, /impound, /revokeweplic, /grantweplic, /vbreach, /searchtrunk");
 		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/take, /kickdoor, /siren, /traffic /beanbag, /callsign, /taclight, /revokelicense, /trace.");
 		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/checkvehicles, /checkproperties, /equip, /spike, /crb, /rallrb, /rrb, /backup, /cancelbackup");
-		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/bomb, /defuse, /spawndrone, /despawndrone, /setswat, /swat, /locktolls");
+		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/bomb, /defuse, /spawndrone, /despawndrone, /setswat, /swat");
 	}
 	else if (GetFactionType(playerid) == FACTION_NEWS) {
  		SendClientMessage(playerid, COLOR_LIGHTRED, "[News]:{FFFFFF} /radio, /callsign, /broadcast, /bc, /inviteguest, /removeguest.");
@@ -28685,7 +28431,8 @@ CMD:factionhelp(playerid, params[])
 	}
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Faction]: {FFFFFF}/factionmembers, /f, /factionleave, /locker.");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Leadership]: {FFFFFF}/gov, /factionalert, /managefaction, /factioname, /factrunk, /factionrc.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Leadership]: {FFFFFF}/factioninvite, /factionkick, /factionrank, /factiondiv, /factionspawn");
+	SendClientMessage(playerid, COLOR_LIGHTRED, "[Leadership]: {FFFFFF}/factioninvite, /factionkick, /factionrank, /factiondiv");
+	ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Animations", string, "Accept", "");
 	return 1;
 }
 
@@ -28712,13 +28459,15 @@ CMD:jobhelp(playerid, params[])
 
 CMD:animhelp(playerid, params[])
 {
-    SendClientMessage(playerid, COLOR_LIGHTRED, "[Animation]:{FFFFFF} /dance, /handsup, /bat, /slap, /bar, /wash, /lay, /workout, /blowjob, /bomb.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Animation]:{FFFFFF} /carry, /crack, /sleep, /jump, /deal, /dancing, /eating, /puke, /gsign, /chat.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Animation]:{FFFFFF} /goggles, /spray, /throw, /swipe, /office, /kiss, /knife, /cpr, /scratch, /point.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Animation]:{FFFFFF} /cheer, /wave, /strip, /smoke, /reload, /taichi, /wank, /cower, /skate, /drunk.");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Animation]:{FFFFFF} /cry, /tired, /sit, /crossarms, /fucku, /walk, /piss, /lean, /relax, /gro, /fall");
-	SendClientMessage(playerid, COLOR_LIGHTRED, "[Animation]:{FFFFFF} /smoke, /what, /injured, /stopanim.");
-	return 1;
+		new string [2048];
+        strcat(string, "{FF6347}[Animation]:{FFFFFF} /dance, /handsup, /bat, /slap, /bar, /wash, /lay, /workout, /blowjob, /bomb.\n");
+        strcat(string, "{FF6347}[Animation]:{FFFFFF} /carry, /crack, /sleep, /jump, /deal, /dancing, /eating, /puke, /gsign, /chat.\n");
+        strcat(string, "{FF6347}[Animation]:{FFFFFF} /goggles, /spray, /throw, /swipe, /office, /kiss, /knife, /cpr, /scratch, /point.\n");
+        strcat(string, "{FF6347}[Animation]:{FFFFFF} /cheer, /wave, /strip, /smoke, /reload, /taichi, /wank, /cower, /skate, /drunk.\n");
+        strcat(string, "{FF6347}[Animation]:{FFFFFF} /cry, /tired, /sit, /crossarms, /fucku, /walk, /piss, /lean, /relax, /fall\n");
+        strcat(string, "{FF6347}[Animation]:{FFFFFF} /smoke, /what, /injured, /stopanim.\n");
+        ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Animations", string, "Accept", "");
+        return 1;
 }
 
 CMD:injured(playerid, params[])
@@ -28995,14 +28744,14 @@ CMD:hood(playerid, params[])
 		{
 	        SetHoodStatus(i, true);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has opened the hood of the vehicle.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has opened the hood of the vehicle.", ReturnName(playerid, 2));
 	        ShowPlayerFooter(playerid, "You have ~g~opened~w~ the hood!");
 		}
 		else
 		{
 			SetHoodStatus(i, false);
 
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has closed the hood of the vehicle.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has closed the hood of the vehicle.", ReturnName(playerid, 2));
 	        ShowPlayerFooter(playerid, "You have ~g~closed~w~ the hood!");
 		}
 	    return 1;
@@ -29024,14 +28773,14 @@ CMD:windows(playerid, params[])
 	    {
 	        CoreVehicles[vehicleid][vehWindowsDown] = true;
 	        ShowPlayerFooter(playerid, "You have ~g~rolled down~w~ the windows!");
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s presses a button and rolls down the windows.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s presses a button and rolls down the windows.", ReturnName(playerid, 2));
 			SetVehicleParamsCarWindows(vehicleid, 0, 0, 0, 0);
 		}
 		case true:
 		{
 		    CoreVehicles[vehicleid][vehWindowsDown] = false;
 		    ShowPlayerFooter(playerid, "You have ~r~rolled up~w~ the windows!");
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s presses a button and rolls up the windows.", ReturnName(playerid, 2));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s presses a button and rolls up the windows.", ReturnName(playerid, 2));
 			SetVehicleParamsCarWindows(vehicleid, 1, 1, 1, 1);
 		}
 	}
@@ -29061,13 +28810,13 @@ CMD:window(playerid,params[])
 		switch(params[0])
 		{
 			case 1:
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s presses a button and rolls the front-left window.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s presses a button and rolls the front-left window.", ReturnName(playerid, 2));
 	        case 2:
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s presses a button and rolls the front-right window.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s presses a button and rolls the front-right window.", ReturnName(playerid, 2));
 	        case 3:
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s presses a button and rolls the rear-left window.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s presses a button and rolls the rear-left window.", ReturnName(playerid, 2));
 	        case 4:
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s presses a button and rolls the rear-right window.", ReturnName(playerid, 2));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s presses a button and rolls the rear-right window.", ReturnName(playerid, 2));
 		}
 		if(driver == 0 || passenger == 0 || backleft == 0 || backright == 0) CoreVehicles[GetPlayerVehicleID(playerid)][vehWindowsDown] = true;
 		else CoreVehicles[GetPlayerVehicleID(playerid)][vehWindowsDown] = false;
@@ -29632,7 +29381,7 @@ CMD:a(playerid, params[])
 	if (isnull(params))
 	    return SendSyntaxMessage(playerid, "/a [admin text]");
 
-    SendAdminAlert(COLOR_ANTICHEAT, "[A] %s %s (%i):{FFFFFF} %s", AdminRankName(playerid), ReturnName(playerid, 0), playerid, params);
+    SendAdminAlert(COLOR_ANTICHEAT, "[Admin] %s %s (%i):{FFFFFF} %s", AdminRankName(playerid), ReturnName(playerid, 0), playerid, params);
 	return 1;
 }
 
@@ -29642,7 +29391,7 @@ CMD:staff(playerid, params[])
 	    return SendErrorMessage(playerid, "You are not authorized to use this command.");
 
 	if (isnull(params))
-	    return SendSyntaxMessage(playerid, "/staff [staff team text]");
+	    return SendSyntaxMessage(playerid, "/staff [staff team chat]");
 
     SendHelperAlert(COLOR_NEWGREEN, "[Staff] %s %s (%i):{FFFFFF} %s", HelperRankName(playerid), ReturnName(playerid, 0), playerid, params);
 	return 1;
@@ -29655,18 +29404,18 @@ CMD:aduty(playerid, params[])
 
 	if (!PlayerData[playerid][pAdminDuty])
 	{
-		SetPlayerColor(playerid, 0xFFA500FF);
+		SetPlayerColor(playerid, 0xC50E0FFF);
  		SetPlayerHealth(playerid, 999999);
 		PlayerData[playerid][pAdminDuty] = 1;
 		SetPlayerHealth(playerid, 9999);
-		SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s %s is now on Admin Duty. ", AdminRankName(playerid), ReturnName(playerid, 0), params);
+		SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s %s is now on admin duty. ", AdminRankName(playerid), ReturnName(playerid, 0), params);
 	}
 	else
 	{
 	    SetPlayerColor(playerid, DEFAULT_COLOR);
         SetPlayerHealth(playerid, 99);
 		PlayerData[playerid][pAdminDuty] = 0;
-		SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s %s is no longer on Admin Duty. ", AdminRankName(playerid), ReturnName(playerid, 0), params);
+		SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s %s is no longer on admin duty. ", AdminRankName(playerid), ReturnName(playerid, 0), params);
 	}
 	return 1;
 }
@@ -29675,7 +29424,7 @@ CMD:hhelp(playerid, params[])
 {
     if (PlayerData[playerid][pHelper] >= 1)
 	{
-	    SendClientMessage(playerid, COLOR_GREEN, "[Helper]: {FFFFFF}/staff, /asshelp, /assist, /assistances, /ac, /endsupport, /sta, /goto, /warn, /send");
+	    SendClientMessage(playerid, COLOR_GREEN, "[Helper]: {FFFFFF}/staff, /asshelp, /assist, /assistances, /ac, /endsupport, /goto, /warn, /send");
 	}
 	return 1;
 }
@@ -29687,9 +29436,9 @@ CMD:ahelp(playerid, params[])
 
 	if (PlayerData[playerid][pAdmin] >= 1)
 	{
-	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Moderation]:{FFFFFF} /a, /reports, /spectate, /ajail, /release, /kick, /mute, /unmute, /freeze, /unfreeze, /atalk, /warn, /alog");
-	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Moderation]:{FFFFFF} /aduty, /ban, /setskin, /goto, /aremovecall, /ar, /dr, /aslap, /acceptname, /declinename, /vw, /disarm.");
-	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Moderation:]{FFFFFF} /jetpack, /resf, /aojail, /asshelp, /sethealth, /flipcar, /staff");
+	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Moderator]:{FFFFFF} /a, /reports, /spectate, /ajail, /release, /kick, /mute, /unmute, /freeze, /unfreeze, /atalk, /warn, /alog");
+	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Moderator]:{FFFFFF} /aduty, /ban, /setskin, /goto, /aremovecall, /ar, /dr, /aslap, /acceptname, /declinename, /vw, /disarm.");
+	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Moderator]:{FFFFFF} /jetpack, /resf, /aojail, /asshelp, /sethealth, /flipcar, /staff");
 	}
 	if (PlayerData[playerid][pAdmin] >= 2)
 	{
@@ -29721,7 +29470,7 @@ CMD:ahelp(playerid, params[])
 	}
 	if (PlayerData[playerid][pAdmin] >= 7)
 	{
-	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Server Leader]:{FFFFFF} nothing.");
+	    //SendClientMessage(playerid, COLOR_LIGHTRED, "[Server Leader]:{FFFFFF}.");
 	}
 	if(PlayerData[playerid][pFactionMod])
 	{
@@ -29759,6 +29508,7 @@ CMD:dynamichelp(playerid, params[])
 	SendClientMessage(playerid, COLOR_CLIENT, "IMPOUND:{FFFFFF} /createimpound, /destroyimpound, /editimpound.");
 	SendClientMessage(playerid, COLOR_CLIENT, "GRAFFITI:{FFFFFF} /creategraffiti, /editgraffiti, /destroygraffiti.");
 	SendClientMessage(playerid, COLOR_CLIENT, "SPEEDCAMERA:{FFFFFF} /createspeed, /destroyspeed.");
+	SendClientMessage(playerid, COLOR_CLIENT, "FIND DYNAMIC IDS USING ''/near''.");
 	return 1;
 }
 
@@ -29803,7 +29553,7 @@ CMD:changeclothes(playerid, params[])
 		SetPlayerSkin(playerid, PlayerData[playerid][pClothes1]);
 		format(string, sizeof(string), "You have changed your clothes");
     	ShowPlayerFooter(playerid, string);
-    	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s changes their clothes.", ReturnName(playerid, 0));
+    	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s changes their clothes.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(type, "2", true))
 	{
@@ -29811,7 +29561,7 @@ CMD:changeclothes(playerid, params[])
 		SetPlayerSkin(playerid, PlayerData[playerid][pClothes2]);
 		format(string, sizeof(string), "You have changed your clothes");
     	ShowPlayerFooter(playerid, string);
-    	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s changes their clothes.", ReturnName(playerid, 0));
+    	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s changes their clothes.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(type, "3", true))
 	{
@@ -29819,7 +29569,7 @@ CMD:changeclothes(playerid, params[])
 		SetPlayerSkin(playerid, PlayerData[playerid][pClothes3]);
 		format(string, sizeof(string), "You have changed your clothes");
     	ShowPlayerFooter(playerid, string);
-    	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s changes their clothes.", ReturnName(playerid, 0));
+    	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s changes their clothes.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -29919,45 +29669,6 @@ CMD:report(playerid, params[])
 		}
 		PlayerData[playerid][pReportTime] = gettime() + 15;
 		SendServerMessage(playerid, "Your report has been sent to the staff team.");
-	}
-	else
-	{
-	    SendErrorMessage(playerid, "The report list is full. Please wait for a while.");
-	}
-	return 1;
-}
-
-CMD:sta(playerid, params[])
-{
-	new reportid = -1;
-
-	if (PlayerData[playerid][pHelper] < 1)
-	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
-
-	if (isnull(params))
-	{
-	    SendSyntaxMessage(playerid, "/sta [reason]");
-	    SendClientMessage(playerid, COLOR_LIGHTRED, "[Alert]:{FFFFFF} Use this command for priority reports only, do not abuse your ability to prioritize.");
-	    return 1;
-	}
-	if (Report_GetCount(playerid) > 1)
-	    return SendErrorMessage(playerid, "You already have 1 active report!");
-
-	if (PlayerData[playerid][pReportTime] >= gettime())
-	    return SendErrorMessage(playerid, "You must wait %d seconds before sending another report.", PlayerData[playerid][pReportTime] - gettime());
-
-	if ((reportid = Report_Add(playerid, params)) != -1)
-	{
-		ShowPlayerFooter(playerid, "Your ~g~high ~w~priority ~r~report~w~ has been sent!");
-
-		foreach (new i : Player)
-		{
-			if (PlayerData[i][pAdmin] > 0) {
-				SendClientMessageEx(i, COLOR_LIGHTYELLOW, "[IMPORTANT REPORT %d]: %s (ID: %d) reports: %s", reportid, ReturnName(playerid, 0), playerid, params);
-			}
-		}
-		PlayerData[playerid][pReportTime] = gettime() + 15;
-		SendServerMessage(playerid, "Your report has been sent to any admins online.");
 	}
 	else
 	{
@@ -30242,7 +29953,7 @@ CMD:aslap(playerid, params[])
 	static
 	    userid;
 
-	new strength = 3;
+	new strength = 2;
 
     if (PlayerData[playerid][pAdmin] < 1)
 	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
@@ -30346,9 +30057,9 @@ CMD:assist(playerid, params[])
 
 			PlayerData[playerid][pPlayersAssisted]++;
 
-			format(string, sizeof(string), "Staff Member %s is now helping you. Please use /ask to chat with the staff member.", ReturnName(playerid, 0), playerid);
+			format(string, sizeof(string), "%s is looking into your support ticket. Please use /ask to chat with the staff member.", ReturnName(playerid, 0), playerid);
 			SendClientMessage(id, COLOR_ANTICHEAT, string);
-			format(string, sizeof(string), "[Staff]: %s is now assisting %s.", ReturnName(playerid, 0), ReturnName(id, 0));
+			format(string, sizeof(string), "[Staff]: {FFFFFF}%s is now assisting %s.", ReturnName(playerid, 0), ReturnName(id, 0));
 			SendHelperAlert(COLOR_NEWGREEN, string);
 			format(string, sizeof(string), "You are now helping %s. Use /ask to chat with them. (Your Total Assists: %d)", ReturnName(id, 0), PlayerData[playerid][pPlayersAssisted]);
 			SendClientMessage(playerid, COLOR_NEWGREEN, string);
@@ -30367,14 +30078,14 @@ CMD:endsupport(playerid, params[])
   		{
    			if(Assisted[id] != playerid)return SendClientMessage(playerid, COLOR_WHITE, "That player isn't being helped by you.");
 	    	format(string, sizeof(string), "%s has closed your support ticket. [reason: %s]", ReturnName(playerid, 0), reason);
-	    	SendClientMessage(id, COLOR_NEWGREEN, string);
+	    	SendClientMessage(id, COLOR_ANTICHEAT, string);
 	    	//format(string, sizeof(string), "You have ended %s's Help session. [Reason: %s]", ReturnName(id, 0), reason);
 	    	//SendClientMessage(playerid, COLOR_NEWGREEN, string);
 	    	Assisted[id] = -1;
 			Assisted[playerid] = -1;
 			//SetPlayerHealth(playerid, 99.00);
 			//SetPlayerPos(playerid, PlayerData[playerid][pPos][0], PlayerData[playerid][pPos][1], PlayerData[playerid][pPos][2]);
-			format(string, sizeof(string), "[Staff]: %s has concluded %s's support ticket. [reason: %s]", ReturnName(playerid, 0), ReturnName(id, 0), reason);
+			format(string, sizeof(string), "[Staff]: {FFFFFF}%s has concluded %s's support ticket. [reason: %s]", ReturnName(playerid, 0), ReturnName(id, 0), reason);
 			SendHelperAlert(COLOR_NEWGREEN, string);
 		}
 	}
@@ -30405,7 +30116,7 @@ CMD:cancelsupport(playerid, params[])
 		new string[128];
  		SendClientMessage(playerid, COLOR_NEWBLUE, "You have cancelled your assistance request.");
    		AssistanceNeeded[playerid] = 0;
-		format(string, sizeof(string), "[STAFF]: %s has closed his support ticket.", ReturnName(playerid, 0));
+		format(string, sizeof(string), "[STAFF]: {FFFFFF}%s has closed his support ticket.", ReturnName(playerid, 0));
 		SendHelperAlert(COLOR_NEWGREEN, string);
 
 
@@ -31183,7 +30894,7 @@ CMD:characters(playerid, params[])
 {
 	new string[128];
     format(string, sizeof(string), "%s\n%s\n%s", (!PlayerCharacters[playerid][0][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][0]), (!PlayerCharacters[playerid][1][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][1]), (!PlayerCharacters[playerid][2][0]) ? ("Empty Slot") : (PlayerCharacters[playerid][2]));
-	Dialog_Show(playerid, CharList, DIALOG_STYLE_LIST, "My Characters", string, "Select", "Cancel");
+	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_LIST, "My Characters", string, "Select", "Cancel");
 	return 1;
 }
 
@@ -32009,12 +31720,12 @@ CMD:toggold(playerid, params[])
 	    {
 			if (strlen(params) > 64)
 			{
-			    SendDonatorAlert(COLOR_DONATORCHAT, "** %s %s: %.64s", DonatorRankName(i), ReturnName(playerid, 0), params);
+			    SendDonatorAlert(COLOR_DONATORCHAT, "* %s %s: %.64s", DonatorRankName(i), ReturnName(playerid, 0), params);
 			    SendDonatorAlert(COLOR_DONATORCHAT, "...%s **", params[64]);
 			}
 			else
 			{
-			    SendAdminAlert(COLOR_DONATORCHAT, "** %s %s: %s **", DonatorRankName(i), ReturnName(playerid, 0), params);
+			    SendAdminAlert(COLOR_DONATORCHAT, "* %s %s: %s **", DonatorRankName(i), ReturnName(playerid, 0), params);
 			}
 		}
 	}
@@ -32070,8 +31781,8 @@ CMD:swat(playerid, params[])
 	{
 		SetPlayerArmour(playerid, 200.0);
 		SetPlayerHealth(playerid, 99.0);
-	  	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s gears up with his SWAT equipment.", ReturnName(playerid, 0));
-	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "**DISPATCH: %s %s is now on SWAT Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	  	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s gears up with his SWAT equipment.", ReturnName(playerid, 0));
+	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on SWAT Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	}
 	else return SendErrorMessage(playerid, "You are not authorized to go on S.W.A.T duty.");
 	return 1;
@@ -32890,8 +32601,8 @@ CMD:spawndrone(playerid, params[])
 
 	    SetEngineStatus(vehicleid, true);
 		CoreVehicles[vehicleid][vehTemporary] = true;
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s uses the remote to start the engine of the SWAT drone.", ReturnName(playerid, 0));
-		SendFactionMessage(factionid, COLOR_FACTIONCHAT, "**DISPATCH: %s %s is now controlling a SWAT drone.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s uses the remote to start the engine of the SWAT drone.", ReturnName(playerid, 0));
+		SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now controlling a SWAT drone.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	}
 	else return SendErrorMessage(playerid, "You are not authorized to spawn a drone due to the fact you are not part of the SWAT team.");
 	return 1;
@@ -33521,7 +33232,7 @@ CMD:switch(playerid, params[])
 		    foreach (new i : Player) if (House_Inside(i) == id) {
 		        PlayerTextDrawHide(i, PlayerData[i][pTextdraws][62]);
 		    }
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s flicks the light switch on.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s flicks the light switch on.", ReturnName(playerid, 0));
 		    HouseData[id][houseLights] = true;
 		}
 		else
@@ -33529,7 +33240,7 @@ CMD:switch(playerid, params[])
 		    foreach (new i : Player) if (House_Inside(i) == id) {
 		        PlayerTextDrawShow(i, PlayerData[i][pTextdraws][62]);
 		    }
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s flicks the light switch off.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s flicks the light switch off.", ReturnName(playerid, 0));
 		    HouseData[id][houseLights] = false;
 		}
 	}
@@ -34235,9 +33946,10 @@ CMD:near(playerid, params[])
     if ((id = Detector_Nearest(playerid)) != -1)
  		SendServerMessage(playerid, "You are standing near detector ID: %d.", id);
 
-	else {
+	else 
+	{
 		SendServerMessage(playerid, "You are not standing near any ID's to process.", id);
-		}
+	}
 	return 1;
 }
 
@@ -34607,7 +34319,7 @@ CMD:cigarette(playerid, params[])
 	Inventory_Remove(playerid, "Cigar");
 	SetPlayerSpecialAction(playerid, SPECIAL_ACTION_SMOKE_CIGGY);
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a cigarette from its pack and lights it up.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a cigarette from its pack and lights it up.", ReturnName(playerid, 0));
 	ShowPlayerFooter(playerid, "Press ~y~LMB~w~ to take a puff.");
 	return 1;
 }
@@ -34642,7 +34354,7 @@ CMD:drink(playerid, params[])
 
 		SetPlayerSpecialAction(playerid, SPECIAL_ACTION_DRINK_SPRUNK);
 
- 		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a bottle of soda and opens it.", ReturnName(playerid, 0));
+ 		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a bottle of soda and opens it.", ReturnName(playerid, 0));
  		ShowPlayerFooter(playerid, "Press ~y~LMB~w~ to take a sip.");
 	}
 	else if (!strcmp(params, "water", true))
@@ -34664,7 +34376,7 @@ CMD:drink(playerid, params[])
 
 		SetPlayerSpecialAction(playerid, SPECIAL_ACTION_DRINK_SPRUNK);
 
- 		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a bottle of water and opens it.", ReturnName(playerid, 0));
+ 		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a bottle of water and opens it.", ReturnName(playerid, 0));
  		ShowPlayerFooter(playerid, "Press ~y~LMB~w~ to take a sip.");
 	}
 	return 1;
@@ -34712,7 +34424,7 @@ CMD:cook(playerid, params[])
 		PlayerData[playerid][pCookingHouse] = houseid;
 
 		Inventory_Remove(playerid, "Frozen Burger");
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s prepares the microwave and heats up a frozen burger (20 seconds).", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s prepares the microwave and heats up a frozen burger (20 seconds).", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(params, "pizza", true))
 	{
@@ -34729,7 +34441,7 @@ CMD:cook(playerid, params[])
 		PlayerData[playerid][pCookingHouse] = houseid;
 
         Inventory_Remove(playerid, "Frozen Pizza");
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s prepares the oven and heats up a frozen pizza (55 seconds).", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s prepares the oven and heats up a frozen pizza (55 seconds).", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -34748,7 +34460,7 @@ CMD:vest(playerid, params[])
 	SetPlayerArmour(playerid, 50.0);
 
 	Inventory_Remove(playerid, "Armored Vest");
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a kevlar vest and puts it on.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a kevlar vest and puts it on.", ReturnName(playerid, 0));
 	return 1;
 }
 
@@ -34780,7 +34492,7 @@ CMD:vault(playerid, params[])
             Business_Save(bizid);
 
             GiveMoney(playerid, amount);
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has withdrawn %s from the business vault.", ReturnName(playerid, 0), FormatNumber(amount));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has withdrawn %s from the business vault.", ReturnName(playerid, 0), FormatNumber(amount));
 		}
 		else if (!strcmp(type, "deposit", true))
 		{
@@ -34794,7 +34506,7 @@ CMD:vault(playerid, params[])
             Business_Save(bizid);
 
             GiveMoney(playerid, -amount);
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has deposited %s into the business vault.", ReturnName(playerid, 0), FormatNumber(amount));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has deposited %s into the business vault.", ReturnName(playerid, 0), FormatNumber(amount));
 		}
 		else if (!strcmp(type, "balance", true))
 		{
@@ -35226,7 +34938,7 @@ CMD:ammo(playerid, params[])
 	}
 	PlayReloadAnimation(playerid, weaponid);
 	Inventory_Remove(playerid, "Ammo Cartridge");
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has used an ammo cartridge on their %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has used an ammo cartridge on their %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 	return 1;
 }
 
@@ -35242,7 +34954,7 @@ CMD:crowbar(playerid, params[])
 	{
 	    PlayerData[playerid][pHoldItem] = 1;
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out his crowbar.", ReturnName(playerid, 2));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out his crowbar.", ReturnName(playerid, 2));
 		SetPlayerAttachedObject(playerid, 4, 18634, 6, 0.156547, 0.039423, 0.026570, 198.109115, 6.364907, 262.997558, 1.000000, 1.000000, 1.000000);
 	}
 	else
@@ -35250,7 +34962,7 @@ CMD:crowbar(playerid, params[])
 	    PlayerData[playerid][pHoldItem] = 0;
 
 		RemovePlayerAttachedObject(playerid,4);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts their crowbar away.", ReturnName(playerid, 2));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts their crowbar away.", ReturnName(playerid, 2));
 	}
 	return 1;
 }
@@ -35267,7 +34979,7 @@ CMD:pocketknife(playerid, params[])
 	{
 	    PlayerData[playerid][pHoldItem] = 1;
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out his pocket knife.", ReturnName(playerid, 2));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out his pocket knife.", ReturnName(playerid, 2));
 		SetPlayerAttachedObject(playerid, 4, 335, 6, 0.00, 0.00, 0.00, 0.0, 0.0, 0.0, 1.00, 1.00, 1.00);
 	}
 	else
@@ -35275,7 +34987,7 @@ CMD:pocketknife(playerid, params[])
 	    PlayerData[playerid][pHoldItem] = 0;
 
 		RemovePlayerAttachedObject(playerid,4);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts their pocket knife away.", ReturnName(playerid, 2));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts their pocket knife away.", ReturnName(playerid, 2));
 	}
 	return 1;
 }
@@ -35292,7 +35004,7 @@ CMD:screwdriver(playerid, params[])
 	{
 	    PlayerData[playerid][pHoldItem] = 1;
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out his screwdriver.", ReturnName(playerid, 2));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out his screwdriver.", ReturnName(playerid, 2));
 		SetPlayerAttachedObject(playerid, 4, 18644, 6, 0.1, 0.039423, 0.026570, 198.109115, 6.364907, 262.997558, 1.000000, 1.000000, 1.000000);
 	}
 	else
@@ -35300,7 +35012,7 @@ CMD:screwdriver(playerid, params[])
 	    PlayerData[playerid][pHoldItem] = 0;
 
 		RemovePlayerAttachedObject(playerid,4);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts their screwdriver away.", ReturnName(playerid, 2));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts their screwdriver away.", ReturnName(playerid, 2));
 	}
 	return 1;
 }
@@ -35342,10 +35054,10 @@ CMD:registercard(playerid, params[])
 
     if (!Inventory_HasItem(playerid, "Credit Card"))
     {
-		SendClientMessage(playerid, COLOR_WHITE,"You have successfully registered a credit card to the San Andreas Bank. You are now allowed to operate bank account.");
+		SendClientMessage(playerid, COLOR_WHITE,"You have successfully registered a credit card to the Vice City Bank. You are now allowed to operate bank account.");
 		Inventory_Add(playerid, "Credit Card", 1581);
 	}
-	else return SendErrorMessage(playerid, "You already have a registered credit card to the San Andreas Bank.");
+	else return SendErrorMessage(playerid, "You already have a registered credit card to the Vice City Bank.");
 	return 1;
 }
 
@@ -35575,7 +35287,7 @@ CMD:refuel(playerid, params[])
 		PlayerData[playerid][pGasStation] = PumpData[id][pumpBusiness];
 
 		PlayerData[playerid][pRefill] = vehicleid;
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has started refilling their vehicle.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has started refilling their vehicle.", ReturnName(playerid, 0));
 	}
 	else
 	{
@@ -35762,8 +35474,13 @@ CMD:createjob(playerid, params[])
 	if(PlayerData[playerid][pAdmin] < 5 && !PlayerData[playerid][pPropertyMod])
         return SendErrorMessage(playerid, "You don't have permission to use this command.");
 
-	if (sscanf(params, "d", type))
-	    return SendSyntaxMessage(playerid, "/createjob [type]");
+	if(sscanf(params, "d", type))
+	{
+		SendSyntaxMessage(playerid, "/createjob [type]");
+		SendClientMessage(playerid, -1,  "1 - Courier | 2 - Mechanic | 3 - Taxi | 4 - Cargo Unloader | 5 - Miner");
+		SendClientMessage(playerid, -1,  "6 - Food Vendor | 7 - Garbage Man | 8 - Package Sorter | 9 - Weapon Smuggler | 10 - Fisherman");
+		return 1;
+	}
 
 	if (type < 1 || type > 10)
 	    return SendErrorMessage(playerid, "Invalid type specified. Types range from 1 to 10.");
@@ -36081,7 +35798,7 @@ CMD:repair(playerid, params[])
         CoreVehicles[CarData[id][carVehicle]][vehRepairing] = true;
         SetTimerEx("RepairCar", 5000, false, "dd", playerid, CarData[id][carVehicle]);
 
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s starts to repair the vehicle.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s starts to repair the vehicle.", ReturnName(playerid, 0));
 		GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~g~Repairing...~w~ Please wait", 5500, 3);
 		return 1;
 	}
@@ -36104,7 +35821,7 @@ CMD:repaircar(playerid, params[])
 		{
 	        RepairVehicle(GetPlayerVehicleID(playerid));
 	        SendServerMessage(playerid, "Your vehicle repair cost has been funded by the Government.");
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s's vehicle is being repaired by Pay n Spray.", ReturnName(playerid, 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s's vehicle is being repaired by Pay n Spray.", ReturnName(playerid, 0));
 			GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~g~Repairing...~w~ Please wait", 5500, 3);
 		}
 		else
@@ -36112,7 +35829,7 @@ CMD:repaircar(playerid, params[])
 			GiveMoney(playerid, -2500);
 			SendServerMessage(playerid, "You have paid $2500 for your vehicle's repair.");
   			RepairVehicle(GetPlayerVehicleID(playerid));
-	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s's vehicle is being repaired by Pay n Spray.", ReturnName(playerid, 0));
+	        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s's vehicle is being repaired by Pay n Spray.", ReturnName(playerid, 0));
 			GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~g~Repairing...~w~ Please wait", 5500, 3);
 		}
 		return 1;
@@ -36144,7 +35861,7 @@ CMD:repaircar(playerid, params[])
 		ApplyAnimation(playerid, "BD_FIRE", "wash_up", 4.1, 0, 0, 0, 0, 0, 1);
 
 		AddComponent(i, 1010);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s places a NOS canister into the vehicle's engine.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s places a NOS canister into the vehicle's engine.", ReturnName(playerid, 0));
 		return 1;
 	}
 	SendErrorMessage(playerid, "You are not in range of any vehicle's hood.");
@@ -36222,7 +35939,7 @@ CMD:usekit(playerid, params[])
     PlayerData[playerid][pFirstAid] = true;
     PlayerData[playerid][pAidTimer] = SetTimerEx("FirstAidUpdate", 1000, true, "d", playerid);
 
-    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s opens a first aid kit and uses it.", ReturnName(playerid, 0));
+    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s opens a first aid kit and uses it.", ReturnName(playerid, 0));
     Inventory_Remove(playerid, "First Aid");
 
     ShowPlayerFooter(playerid, "You have used a ~g~first aid kit!");
@@ -36289,7 +36006,7 @@ CMD:text(playerid, params[])
 		SendClientMessageEx(playerid, COLOR_YELLOW, "[TEXT]: %s - %s (%d)", text, ReturnName(playerid, 0), PlayerData[playerid][pPhone]);
 
         PlayerPlaySoundEx(targetid, 21001);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their phone and sends a text.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their phone and sends a text.", ReturnName(playerid, 0));
 	}
 	else
 	{
@@ -36320,7 +36037,7 @@ CMD:pickup(playerid, params[])
 	SendClientMessage(playerid, COLOR_YELLOW, "[Server]:{FFFFFF} You have answered the call.");
 	SendClientMessage(targetid, COLOR_YELLOW, "[Server]:{FFFFFF} The other line has accepted the call.");
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has accepted the incoming call.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has accepted the incoming call.", ReturnName(playerid, 0));
 	return 1;
 }
 
@@ -36341,7 +36058,7 @@ CMD:hangup(playerid, params[])
 	    PlayerData[playerid][pPlaceAd] = 0;
 	    PlayerData[playerid][pLoanAsk] = 0;
 
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has hung up their cellphone.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has hung up their cellphone.", ReturnName(playerid, 0));
         return 1;
 	}
 	if (PlayerData[playerid][pDealerCallGuns] || PlayerData[playerid][pDealerCallDrugs] || PlayerData[playerid][pDealerCallMP] || PlayerData[playerid][pDealerCallPP] || PlayerData[playerid][pDealerCallSMGP] || PlayerData[playerid][pDealerCallSP] || PlayerData[playerid][pDealerCallRP] || PlayerData[playerid][pDealerCallDP])
@@ -36355,7 +36072,7 @@ CMD:hangup(playerid, params[])
 	    PlayerData[playerid][pDealerCallRP] = 0;
 	    PlayerData[playerid][pDealerCallDP] = 0;
 
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has hung up their cellphone.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has hung up their cellphone.", ReturnName(playerid, 0));
         return 1;
 	}
 	if (targetid == INVALID_PLAYER_ID)
@@ -36366,15 +36083,15 @@ CMD:hangup(playerid, params[])
 	    SendClientMessage(playerid, COLOR_YELLOW, "[Phone]:{FFFFFF} You have declined the incoming call.");
 	    SendClientMessage(targetid, COLOR_YELLOW, "[Phone]:{FFFFFF} The other line has declined the call.");
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has declined the call.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has declined the call.", ReturnName(playerid, 0));
 	}
 	else
 	{
-        SendClientMessage(playerid, COLOR_YELLOW, "[PHONE]:{FFFFFF} You have hung up the call.");
-	    SendClientMessage(targetid, COLOR_YELLOW, "[PHONE]:{FFFFFF} The other line has hung up the call.");
+        SendClientMessage(playerid, COLOR_YELLOW, "[Phone]:{FFFFFF} You have hung up the call.");
+	    SendClientMessage(targetid, COLOR_YELLOW, "[Phone]:{FFFFFF} The other line has hung up the call.");
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has hung up their cellphone.", ReturnName(playerid, 0));
-	    SendNearbyMessage(targetid, 30.0, COLOR_PURPLE, "** %s has hung up their cellphone.", ReturnName(targetid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has hung up their cellphone.", ReturnName(playerid, 0));
+	    SendNearbyMessage(targetid, 30.0, COLOR_PURPLE, "* %s has hung up their cellphone.", ReturnName(targetid, 0));
 	}
 	PlayerData[playerid][pIncomingCall] = 0;
 	PlayerData[targetid][pIncomingCall] = 0;
@@ -36422,7 +36139,7 @@ CMD:id(playerid, params[])
 	{
 	    if (strfind(ReturnName(i), params, true) != -1)
 	    {
-	        SendClientMessageEx(playerid, COLOR_WHITE, "** %s - ID: %d", ReturnName(i), i);
+	        SendClientMessageEx(playerid, COLOR_WHITE, "* %s - ID: %d", ReturnName(i), i);
 	        count++;
 		}
 	}
@@ -36477,7 +36194,7 @@ CMD:loadcrate(playerid, params[])
 		PlayerData[playerid][pLoading] = 1;
 
 		GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~r~Loading crate...", 3200, 3);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s moves the forklift towards the crate.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s moves the forklift towards the crate.", ReturnName(playerid, 0));
 
 		TogglePlayerControllable(playerid, 0);
 		SetTimerEx("ForkliftUpdate", 3000, false, "dd", playerid, vehid);
@@ -36692,7 +36409,7 @@ CMD:craftparts(playerid, params[])
 
     PlayerData[playerid][pCrafting] = 1;
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s begins crafting their %s Parts.", ReturnName(playerid, 0), Crate_GetType(CrateData[PlayerData[playerid][pCarryCrate]][crateType]));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s begins crafting their %s Parts.", ReturnName(playerid, 0), Crate_GetType(CrateData[PlayerData[playerid][pCarryCrate]][crateType]));
 	GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~r~Crafting parts...", 11000, 3);
 
 	TogglePlayerControllable(playerid, 0);
@@ -36717,7 +36434,7 @@ CMD:opencrate(playerid, params[])
 
 	PlayerData[playerid][pOpeningCrate] = 1;
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a crowbar and breaks the drug crate open.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a crowbar and breaks the drug crate open.", ReturnName(playerid, 0));
 	GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~r~Opening crate...", 3000, 3);
 
  	TogglePlayerControllable(playerid, 0);
@@ -36743,7 +36460,7 @@ CMD:plant(playerid, params[])
 		Inventory_Remove(playerid, "Marijuana Seeds", 10);
 
 		Plant_Create(playerid, 1);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s plants some marijuana seeds into the ground.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s plants some marijuana seeds into the ground.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(params, "cocaine", true))
 	{
@@ -36753,7 +36470,7 @@ CMD:plant(playerid, params[])
 		Inventory_Remove(playerid, "Cocaine Seeds", 10);
 
 		Plant_Create(playerid, 2);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s plants some cocaine seeds into the ground.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s plants some cocaine seeds into the ground.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(params, "heroin", true))
 	{
@@ -36763,7 +36480,7 @@ CMD:plant(playerid, params[])
 		Inventory_Remove(playerid, "Heroin Opium Seeds", 10);
 
 		Plant_Create(playerid, 3);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s plants some heroin opium seeds into the ground.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s plants some heroin opium seeds into the ground.", ReturnName(playerid, 0));
 	}
 	else {
 	    SendSyntaxMessage(playerid, "/plant [weed/cocaine/heroin]");
@@ -36788,7 +36505,7 @@ CMD:harvest(playerid, params[])
 	    return SendErrorMessage(playerid, "You are already harvesting a plant.");
 
 	GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~r~Harvesting plant...", 3100, 3);
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s begins to harvest the drug plant.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s begins to harvest the drug plant.", ReturnName(playerid, 0));
 
 	PlayerData[playerid][pHarvesting] = 1;
 	SetTimerEx("HarvestPlant", 3000, false, "dd", playerid, id);
@@ -36939,14 +36656,14 @@ CMD:open(playerid, params[])
 			SetDynamicObjectRot(PrisonData[prisonDoors][0], 0.0, 0.0, -90.0);
 
 			PrisonData[prisonDoorOpened][0] = true;
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and opens the prison door.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and opens the prison door.", ReturnName(playerid, 0));
 		}
 		else
 		{
 		    SetDynamicObjectRot(PrisonData[prisonDoors][0], 0.0, 0.0, 0.0);
 
 			PrisonData[prisonDoorOpened][0] = false;
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and closes the prison door.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and closes the prison door.", ReturnName(playerid, 0));
 		}
 	}
 	else if (IsPlayerNearDynamicObject(playerid, PrisonData[prisonDoors][1]))
@@ -36959,14 +36676,14 @@ CMD:open(playerid, params[])
 			SetDynamicObjectRot(PrisonData[prisonDoors][1], 0.0, 0.0, 0.0);
 
 			PrisonData[prisonDoorOpened][1] = true;
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and opens the prison door.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and opens the prison door.", ReturnName(playerid, 0));
 		}
 		else
 		{
 		    SetDynamicObjectRot(PrisonData[prisonDoors][1], 0.0, 0.0, 90.0);
 
 			PrisonData[prisonDoorOpened][1] = false;
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and closes the prison door.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and closes the prison door.", ReturnName(playerid, 0));
 		}
 	}
 	else if (IsPlayerNearDynamicObject(playerid, PrisonData[prisonDoors][2]))
@@ -36979,14 +36696,14 @@ CMD:open(playerid, params[])
 			SetDynamicObjectRot(PrisonData[prisonDoors][2], 0.0, 0.0, -90.0);
 
 			PrisonData[prisonDoorOpened][2] = true;
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and opens the prison door.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and opens the prison door.", ReturnName(playerid, 0));
 		}
 		else
 		{
 		    SetDynamicObjectRot(PrisonData[prisonDoors][2], 0.0, 0.0, 0.0);
 
 			PrisonData[prisonDoorOpened][2] = false;
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and closes the prison door.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and closes the prison door.", ReturnName(playerid, 0));
 		}
 	}
 	for (new i = 0; i < 24; i ++) if (IsPlayerNearDynamicObject(playerid, PrisonData[prisonCells][i], 3.0))
@@ -36999,14 +36716,14 @@ CMD:open(playerid, params[])
 			MoveDynamicObject(PrisonData[prisonCells][i], PrisonCells[i][0], PrisonCells[i][1] + 1.6, PrisonCells[i][2], 3.0);
 
 		    PrisonData[prisonCellOpened][i] = true;
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and opens the prison cell.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and opens the prison cell.", ReturnName(playerid, 0));
 		}
 		else
 		{
 		    MoveDynamicObject(PrisonData[prisonCells][i], PrisonCells[i][0], PrisonCells[i][1], PrisonCells[i][2], 3.0);
 
 		    PrisonData[prisonCellOpened][i] = false;
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their key and closes the prison cell.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their key and closes the prison cell.", ReturnName(playerid, 0));
 		}
 		break;
 	}
@@ -37045,7 +36762,7 @@ CMD:drop(playerid, params[])
 	ResetWeapon(playerid, weaponid);
 
     ApplyAnimation(playerid, "GRENADE", "WEAPON_throwu", 4.1, 0, 0, 0, 0, 0, 1);
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a %s and drops it on the floor.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a %s and drops it on the floor.", ReturnName(playerid, 0), ReturnWeaponName(weaponid));
 	return 1;
 }
 
@@ -37246,7 +36963,7 @@ CMD:resf(playerid, params[])
     if (PlayerData[playerid][pAdmin] < 1)
 	    return SendErrorMessage(playerid, "You don't have permission to use this command.");
 
-	Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_LIST, "Restricted Frequencies", "Police Department\nFire Department\nSan Andreas Government", "Select", "Cancel");
+	Dialog_Show(playerid, RestrictedFrequencies, DIALOG_STYLE_LIST, "Restricted Frequencies", "Police Department\nFire Department\nGovernment", "Select", "Cancel");
 	return 1;
 }
 
@@ -37764,7 +37481,7 @@ CMD:factionname(playerid, params[])
 	return 1;
 }
 
-
+/*
 CMD:spawnpoint(playerid, params[])
 {
 	new point;
@@ -37794,6 +37511,7 @@ CMD:spawnpoint(playerid, params[])
 	}
 	return 1;
 }
+*/
 
 CMD:checkbelt(playerid, params[])
 {
@@ -37818,13 +37536,13 @@ CMD:checkbelt(playerid, params[])
 		{
             format(string, sizeof(string), "%s's helmet is currently %s." , ReturnName(giveplayerid, 0) , stext);
             SendClientMessageEx(playerid,COLOR_WHITE,string);
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s looks at %s checking to see if they have a helmet on.", ReturnName(playerid, 0), ReturnName(giveplayerid, 0));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s looks at %s checking to see if they have a helmet on.", ReturnName(playerid, 0), ReturnName(giveplayerid, 0));
         }
         else
 		{
             format(string, sizeof(string), "%s's seat belt is currently %s." , ReturnName(giveplayerid, 0) , stext);
             SendClientMessageEx(playerid,COLOR_WHITE,string);
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s peers through the window at %s checking if they have their seatbelt on.", ReturnName(playerid, 0), ReturnName(giveplayerid, 0));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s peers through the window at %s checking if they have their seatbelt on.", ReturnName(playerid, 0), ReturnName(giveplayerid, 0));
         }
     }
     else { SendErrorMessage(playerid, "You are not near that player"); }
@@ -37833,26 +37551,7 @@ CMD:checkbelt(playerid, params[])
 
 CMD:cb(playerid, params[]) return cmd_checkbelt(playerid, params);
 
-CMD:factionspawn(playerid, params[])
-{
-	new faction = PlayerData[playerid][pFactionID];
-
-	if (PlayerData[playerid][pFaction] == -1)
-	    return SendErrorMessage(playerid, "You must be a faction leader.");
-
-	if (PlayerData[playerid][pFactionRank] < FactionData[PlayerData[playerid][pFaction]][factionRanks] - 5)
-	    return SendErrorMessage(playerid, "You must be at least rank %d.", FactionData[PlayerData[playerid][pFaction]][factionRanks] - 5);
-	new Float:X, Float:Y, Float:Z;
-	GetPlayerPos(playerid, X, Y, Z);
-	FactionData[faction][SpawnX] = X;
-	FactionData[faction][SpawnY] = Y;
-	FactionData[faction][SpawnZ] = Z;
-	FactionData[faction][SpawnInterior] = GetPlayerInterior(playerid);
-	FactionData[faction][SpawnVW] = GetPlayerVirtualWorld(playerid);
-	Faction_Save(faction);
-	SendClientMessage(playerid, COLOR_ORANGE, "You have changed your faction's spawn point. Faction members are now going to spawn here.");
-	return 1;
-}
+CMD:tazer(playerid, params[]) return cmd_taser(playerid, "\1");
 
 CMD:taser(playerid, params[])
 {
@@ -37868,7 +37567,7 @@ CMD:taser(playerid, params[])
 	    GetPlayerWeaponData(playerid, 2, PlayerData[playerid][pGuns][2], PlayerData[playerid][pAmmo][2]);
 
 		GivePlayerWeapon(playerid, 23, 10);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a taser from their holster.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a taser from their holster.", ReturnName(playerid, 0));
 	}
 	else
 	{
@@ -37876,7 +37575,7 @@ CMD:taser(playerid, params[])
 		SetWeapons(playerid);
 
 		SetPlayerArmedWeapon(playerid, PlayerData[playerid][pGuns][2]);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts their taser into their holster.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts their taser into their holster.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -37891,7 +37590,7 @@ CMD:showbadge(playerid, params[])
 	{
 	    if (id == INVALID_PLAYER_ID) return SendErrorMessage(playerid, "That player is disconnected.");
 	    if (!IsPlayerNearPlayer(playerid, id, 2.0)) return SendErrorMessage(playerid, "You must be near this player.");
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s shows their badge to %s.", ReturnName(playerid, 0), ReturnName(id, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s shows their badge to %s.", ReturnName(playerid, 0), ReturnName(id, 0));
 		SendClientMessage(id, COLOR_WHITE, "[Badge Information]");
 		format(string, sizeof(string), "Name: %s", ReturnName(playerid, 0));
 		SendClientMessage(id, COLOR_WHITE, string);
@@ -37957,7 +37656,7 @@ CMD:beanbag(playerid, params[])
 	    GetPlayerWeaponData(playerid, 3, PlayerData[playerid][pGuns][3], PlayerData[playerid][pAmmo][3]);
 
 		GivePlayerWeapon(playerid, 25, 30);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a beanbag shotgun.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a beanbag shotgun.", ReturnName(playerid, 0));
 	}
 	else
 	{
@@ -37965,7 +37664,7 @@ CMD:beanbag(playerid, params[])
 		SetWeapons(playerid);
 
 		SetPlayerArmedWeapon(playerid, PlayerData[playerid][pGuns][3]);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts their beanbag shotgun away.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts their beanbag shotgun away.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -38027,7 +37726,7 @@ CMD:cuff(playerid, params[])
 	format(string, sizeof(string), "You've been ~r~cuffed~w~ by %s.", ReturnName(playerid, 0));
     ShowPlayerFooter(userid, string);
 
-    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s tightens a pair of handcuffs on %s's wrists.", ReturnName(playerid, 0), ReturnName(userid, 0));
+    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s tightens a pair of handcuffs on %s's wrists.", ReturnName(playerid, 0), ReturnName(userid, 0));
     return 1;
 }
 
@@ -38064,7 +37763,7 @@ CMD:uncuff(playerid, params[])
 	format(string, sizeof(string), "You've been ~g~uncuffed~w~ by %s.", ReturnName(playerid, 0));
     ShowPlayerFooter(userid, string);
 
-    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s loosens the pair of handcuffs on %s's wrists.", ReturnName(playerid, 0), ReturnName(userid, 0));
+    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s loosens the pair of handcuffs on %s's wrists.", ReturnName(playerid, 0), ReturnName(userid, 0));
     return 1;
 }
 
@@ -38094,7 +37793,7 @@ CMD:drag(playerid, params[])
 	    PlayerData[userid][pDraggedBy] = INVALID_PLAYER_ID;
 
 	    KillTimer(PlayerData[userid][pDragTimer]);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s releases %s from their grip.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s releases %s from their grip.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	}
 	else
 	{
@@ -38102,7 +37801,7 @@ CMD:drag(playerid, params[])
 	    PlayerData[userid][pDraggedBy] = playerid;
 
 	    PlayerData[userid][pDragTimer] = SetTimerEx("DragUpdate", 200, true, "dd", playerid, userid);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s grabs %s and starts dragging them.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s grabs %s and starts dragging them.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	}
 	return 1;
 }
@@ -38148,7 +37847,7 @@ CMD:detain(playerid, params[])
 		TogglePlayerControllable(userid, 1);
 
 		RemoveFromVehicle(userid);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s opens the door and pulls %s out the vehicle.", ReturnName(playerid, 0), ReturnName(userid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s opens the door and pulls %s out the vehicle.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	}
 	else
 	{
@@ -38166,7 +37865,7 @@ CMD:detain(playerid, params[])
 		StopDragging(userid);
 		PutPlayerInVehicle(userid, vehicleid, seatid);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s opens the door and places %s into the vehicle.", ReturnName(playerid, 0), ReturnName(userid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s opens the door and places %s into the vehicle.", ReturnName(playerid, 0), ReturnName(userid, 0));
 		ShowPlayerFooter(userid, string);
 	}
 	return 1;
@@ -38316,7 +38015,7 @@ CMD:cancelbackup(playerid, params[])
 	return 1;
 }
 
-CMD:arrest(playerid, params[])
+CMD:jail(playerid, params[])
 {
 	static
 	    userid,
@@ -38326,16 +38025,16 @@ CMD:arrest(playerid, params[])
 		return SendErrorMessage(playerid, "You must be a police officer.");
 
 	if (sscanf(params, "ud", userid, time))
-	    return SendSyntaxMessage(playerid, "/arrest [playerid/name] [minutes]");
+	    return SendSyntaxMessage(playerid, "/jail [playerid/name] [minutes]");
 
 	if (userid == INVALID_PLAYER_ID || !IsPlayerNearPlayer(playerid, userid, 5.0))
 	    return SendErrorMessage(playerid, "The player is disconnected or not near you.");
 
-	/*if (time < 1 || time > 120)
-	    return SendErrorMessage(playerid, "The specified time can't be below 1 or above 120.");*/
+	if (time < 1 || time > 30)
+	    return SendErrorMessage(playerid, "The specified time can't be below 1 or above 30.");
 
 	if (!IsPlayerNearArrest(playerid))
-	    return SendErrorMessage(playerid, "You must be near an arrest point.");
+	    return SendErrorMessage(playerid, "You must be near a jail point.");
 
 	PlayerData[userid][pPrisoned] = 1;
 	PlayerData[userid][pJailTime] = time * 60;
@@ -38353,7 +38052,11 @@ CMD:arrest(playerid, params[])
     SetPlayerSpecialAction(userid, SPECIAL_ACTION_NONE);
 	RemovePlayerAttachedObject(userid, 9);
 
-    SendClientMessageToAllEx(COLOR_LIGHTRED, "[PRISON] %s was imprisoned for %d days at San Andreas Prison.", ReturnName(userid, 0), time);
+	for (new b = 0; b != MAX_FACTIONS; b ++) if (FactionData[b][factionType] == FACTION_POLICE)
+	{
+		SendFactionMessage(b, COLOR_RADIOCHAT, "[Dispatch]: %s jailed %s for %d minutes.", ReturnName(playerid, 0), ReturnName(userid, 0), time);
+	}
+
     return 1;
 }
 
@@ -38365,7 +38068,7 @@ CMD:flashlight(playerid)
 		if(IsPlayerAttachedObjectSlotUsed(playerid,9)) RemovePlayerAttachedObject(playerid,9);
 		SetPlayerAttachedObject(playerid, 8, 18656, 5, 0.1, 0.038, -0.01, -90, 145, 0, 0.03, 0.1, 0.03);
 		SetPlayerAttachedObject(playerid, 9, 18641, 5, 0.1, 0.02, -0.05, 0, 0, 0, 1, 1, 1);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a flashlight and turns it on.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a flashlight and turns it on.", ReturnName(playerid, 0));
 
 		PlayerData[playerid][pFLAttached] =1;
 	}
@@ -38374,7 +38077,7 @@ CMD:flashlight(playerid)
  		RemovePlayerAttachedObject(playerid,8);
 		RemovePlayerAttachedObject(playerid,9);
   		PlayerData[playerid][pFLAttached] =0;
-  		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s puts their flashlight back in their pocket.", ReturnName(playerid, 0));
+  		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s puts their flashlight back in their pocket.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -38393,7 +38096,7 @@ CMD:tacflash(playerid)
 			if(IsPlayerAttachedObjectSlotUsed(playerid,9)) RemovePlayerAttachedObject(playerid,9);
 			SetPlayerAttachedObject(playerid, 8, 18656, 6, 0.25, -0.0175, 0.16, 86.5, -185, 86.5, 0.03, 0.1, 0.03);
 			SetPlayerAttachedObject(playerid, 9, 18641, 6, 0.2, 0.01, 0.16, 90, -95, 90, 1, 1, 1);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches their flashlight to the top of their weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches their flashlight to the top of their weapon.", ReturnName(playerid, 0));
 
 			PlayerData[playerid][pTLAttached] =1;
 		}
@@ -38402,7 +38105,7 @@ CMD:tacflash(playerid)
 		    RemovePlayerAttachedObject(playerid,8);
 			RemovePlayerAttachedObject(playerid,9);
 		    PlayerData[playerid][pTLAttached] =0;
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s detaches their flashlight from their weapon.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s detaches their flashlight from their weapon.", ReturnName(playerid, 0));
 		}
 	}
 	return 1;
@@ -38419,7 +38122,7 @@ CMD:seizeplant(playerid, params[])
 	if ((plantid = Plant_Nearest(playerid)) == -1)
 	    return SendErrorMessage(playerid, "You are not standing near any drug plant.");
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has seized a %s plant weighing %d grams.", ReturnName(playerid, 0), Plant_GetType(PlantData[plantid][plantType]), PlantData[plantid][plantDrugs]);
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has seized a %s plant weighing %d grams.", ReturnName(playerid, 0), Plant_GetType(PlantData[plantid][plantType]), PlantData[plantid][plantDrugs]);
 	Plant_Delete(plantid);
 	return 1;
 }
@@ -38466,7 +38169,7 @@ CMD:loadinjured(playerid, params[])
 		PlayerData[userid][pInjured] = 2;
 
 		PutPlayerInVehicle(userid, i, seatid);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s opens up the ambulance and loads %s on the stretcher.", ReturnName(playerid, 0), ReturnName(userid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s opens up the ambulance and loads %s on the stretcher.", ReturnName(playerid, 0), ReturnName(userid, 0));
 
 		TogglePlayerControllable(userid, 0);
 		SetPlayerHealth(userid, 99.0);
@@ -38571,7 +38274,7 @@ CMD:bandage(playerid, params[])
     PlayerData[userid][pFirstAid] = true;
     PlayerData[userid][pAidTimer] = SetTimerEx("FirstAidUpdate", 1000, true, "d", userid);
 
-    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s opens a first aid kit and uses a bandage on %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
+    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s opens a first aid kit and uses a bandage on %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
     return 1;
 }
 
@@ -38587,7 +38290,7 @@ CMD:broadcast(playerid, params[])
 	{
 	    PlayerData[playerid][pBroadcast] = true;
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has started a news broadcast.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has started a news broadcast.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "You have started a news broadcast (use \"/bc [text]\" to broadcast).");
 	}
 	else
@@ -38597,7 +38300,7 @@ CMD:broadcast(playerid, params[])
 		foreach (new i : Player) if (PlayerData[i][pNewsGuest] == playerid) {
 		    PlayerData[i][pNewsGuest] = INVALID_PLAYER_ID;
 		}
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has stopped a news broadcast.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has stopped a news broadcast.", ReturnName(playerid, 0));
 	    SendServerMessage(playerid, "You have stopped the news broadcast.");
 	}
 	return 1;
@@ -38730,7 +38433,7 @@ CMD:pay(playerid, params[])
 	format(string, sizeof(string), "You have given ~r~%s~w~ to %s.", FormatNumber(amount), ReturnName(userid, 0));
 	ShowPlayerFooter(playerid, string);
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out %s from their wallet and hands it to %s.", ReturnName(playerid, 0), FormatNumber(amount), ReturnName(userid, 0));	return 1;
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out %s from their wallet and hands it to %s.", ReturnName(playerid, 0), FormatNumber(amount), ReturnName(userid, 0));	return 1;
 }
 
 /*CMD:radio(playerid, params[])
@@ -38834,7 +38537,7 @@ CMD:fill(playerid, params[])
 	Inventory_Remove(playerid, "Fuel Can");
 	GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~n~~r~Filling vehicle...", 5200, 3);
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s opens a can of fuel and fills the vehicle.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s opens a can of fuel and fills the vehicle.", ReturnName(playerid, 0));
 	SetTimerEx("RefillUpdate", 5000, false, "dd", playerid, vehicleid);
 	return 1;
 }
@@ -39038,7 +38741,7 @@ CMD:ticket(playerid, params[])
 	    SendServerMessage(userid, "%s has written you a ticket for %s, reason: %s", ReturnName(playerid, 0), FormatNumber(price), reason);
 		SendServerMessage(userid, "Wish to appeal this ticket? Appear Saturday at 8PM at the court house.");
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has written up a ticket for %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has written up a ticket for %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	}
 	else {
 	    SendErrorMessage(playerid, "That player already has %d outstanding tickets.", MAX_PLAYER_TICKETS);
@@ -39074,7 +38777,7 @@ CMD:invoice(playerid, params[])
 	    SendServerMessage(playerid, "You have written %s an invoice for %s, reason: %s", ReturnName(userid, 0), FormatNumber(price), reason);
 	    SendServerMessage(userid, "%s has written you an invoice for %s, reason: %s", ReturnName(playerid, 0), FormatNumber(price), reason);
 
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has written up an invoice for %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has written up an invoice for %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	}
 	else {
 	    SendErrorMessage(playerid, "That player already has %d outstanding tickets.", MAX_PLAYER_INVOICES);
@@ -39216,7 +38919,7 @@ CMD:spike(playerid, params[])
 
             BarricadeData[i][cadeObject] = CreateDynamicObject(2899, fX, fY, fZ - 0.8, 0.0, 0.0, fA + 5.0);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a spikestrip.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a spikestrip.", ReturnName(playerid, 0));
 			SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "RADIO: %s has dropped a spikestrip at %s.", ReturnName(playerid, 0), GetLocation(fX, fY, fZ));
 
 			return 1;
@@ -39232,7 +38935,7 @@ CMD:spike(playerid, params[])
 
             DestroyDynamicObject(BarricadeData[i][cadeObject]);
 
-            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a spikestrip.", ReturnName(playerid, 0));
+            SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a spikestrip.", ReturnName(playerid, 0));
 			SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "RADIO: %s has picked up a spikestrip at %s.", ReturnName(playerid, 0), GetLocation(fX, fY, fZ));
 			return 1;
 		}
@@ -39267,8 +38970,8 @@ CMD:crb(playerid, params[])
 	    GetPlayerFacingAngle(playerid,ploca);
 	    CreateRoadblock(1459,plocx,plocy,plocz,ploca);
 	    //GameTextForPlayer(playerid,"~w~Roadblock ~b~Placedd!",3000,1);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a small roadblock.", ReturnName(playerid, 0));
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a small roadblock at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a small roadblock.", ReturnName(playerid, 0));
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has dropped a small roadblock at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
 		return 1;
 	}
 	else if (rb == 2)
@@ -39279,8 +38982,8 @@ CMD:crb(playerid, params[])
         GetPlayerFacingAngle(playerid,ploca);
         CreateRoadblock(978,plocx,plocy,plocz+0.6,ploca);
         //GameTextForPlayer(playerid,"~w~Roadblock ~b~Placed!",3000,1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a medium roadblock.", ReturnName(playerid, 0));
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a medium roadblock at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a medium roadblock.", ReturnName(playerid, 0));
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has dropped a medium roadblock at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
         return 1;
 	}
 	else if (rb == 3)
@@ -39291,8 +38994,8 @@ CMD:crb(playerid, params[])
         GetPlayerFacingAngle(playerid,ploca);
         CreateRoadblock(3091,plocx,plocy,plocz+0.5,ploca+180);
         //GameTextForPlayer(playerid,"~w~Sign ~g~Placed!",3000,1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a sign.", ReturnName(playerid, 0));
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a sign.", ReturnName(playerid, 0));
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
 	    return 1;
 	}
 	else if (rb == 4)
@@ -39303,8 +39006,8 @@ CMD:crb(playerid, params[])
         GetPlayerFacingAngle(playerid,ploca);
         CreateRoadblock(1238,plocx,plocy,plocz+0.2,ploca);
         //GameTextForPlayer(playerid,"~w~Cone ~g~Placed!",3000,1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a cone.", ReturnName(playerid, 0));
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a roadblock cone at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a cone.", ReturnName(playerid, 0));
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has dropped a roadblock cone at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
 	    return 1;
 	}
 	else if (rb == 5)
@@ -39315,8 +39018,8 @@ CMD:crb(playerid, params[])
         GetPlayerFacingAngle(playerid,ploca);
         CreateRoadblock(1425,plocx,plocy,plocz+0.6,ploca);
         //GameTextForPlayer(playerid,"~w~Sign ~g~Placed!",3000,1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a sign", ReturnName(playerid, 0));
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a sign", ReturnName(playerid, 0));
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
 	    return 1;
 	}
 	else if (rb == 6)
@@ -39327,8 +39030,8 @@ CMD:crb(playerid, params[])
         GetPlayerFacingAngle(playerid,ploca);
         CreateRoadblock(3265,plocx,plocy,plocz-0.5,ploca);
         //GameTextForPlayer(playerid,"~w~Sign ~g~Placed!",3000,1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped a sign.", ReturnName(playerid, 0));
-		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped a sign.", ReturnName(playerid, 0));
+		SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
     	return 1;
 	}
 	else if (rb == 7)
@@ -39339,7 +39042,7 @@ CMD:crb(playerid, params[])
         GetPlayerFacingAngle(playerid,ploca);
         CreateRoadblock(2121,plocx,plocy,plocz+0.5,ploca+180);
         //GameTextForPlayer(playerid,"~w~Sign ~g~Placed!",3000,1);
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has set up a chair.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has set up a chair.", ReturnName(playerid, 0));
 		//SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has dropped a roadblock sign at %s.", ReturnName(playerid, 0), GetLocation(plocx, plocy, plocz));
 	    return 1;
 	}
@@ -39351,8 +39054,8 @@ CMD:rallrb(playerid, params[])
     if (GetFactionType(playerid) != FACTION_POLICE && GetFactionType(playerid) != FACTION_MEDIC && GetFactionType(playerid) != FACTION_GOV && GetFactionType(playerid) != FACTION_SECURITY)
 	    return SendErrorMessage(playerid, "You must be a civil service worker.");
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up all currently spawned roadblocks.", ReturnName(playerid, 0));
-	SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has picked up all currently spawned roadblocks.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up all currently spawned roadblocks.", ReturnName(playerid, 0));
+	SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has picked up all currently spawned roadblocks.", ReturnName(playerid, 0));
 	for___loop(new i = 0; i < sizeof(Roadblocks); i++)
   	{
   	    if(IsPlayerInRangeOfPoint(playerid, 100, Roadblocks[i][sX], Roadblocks[i][sY], Roadblocks[i][sZ]))
@@ -39375,8 +39078,8 @@ CMD:rrb(playerid, params[])
     if (GetFactionType(playerid) != FACTION_POLICE && GetFactionType(playerid) != FACTION_MEDIC && GetFactionType(playerid) != FACTION_GOV && GetFactionType(playerid) != FACTION_SECURITY)
 	    return SendErrorMessage(playerid, "You must be a civil service worker.");
 
-    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up a roadblock object.", ReturnName(playerid, 0));
-	SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[DISPATCHER]: %s has picked up a roadblock.", ReturnName(playerid, 0));
+    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up a roadblock object.", ReturnName(playerid, 0));
+	SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Dispatch]: %s has picked up a roadblock.", ReturnName(playerid, 0));
     for___loop(new i = 0; i < sizeof(Roadblocks); i++)
   	{
   	    if(IsPlayerInRangeOfPoint(playerid, 5.0, Roadblocks[i][sX], Roadblocks[i][sY], Roadblocks[i][sZ]))
@@ -39501,7 +39204,7 @@ CMD:doorbell(playerid, params[])
 	    PlayerPlaySound(i, 20801, 0, 0, 0);
 	}
 	PlayerPlaySoundEx(playerid, 20801);
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s rings the doorbell of the property.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s rings the doorbell of the property.", ReturnName(playerid, 0));
 	return 1;
 }
 
@@ -39795,7 +39498,7 @@ CMD:usedrug(playerid, params[])
 		ApplyAnimation(playerid, "SMOKING", "M_smk_in", 4.1, 0, 0, 0, 0, 0, 1);
 
 		SetPlayerSpecialAction(playerid, SPECIAL_ACTION_SMOKE_CIGGY);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a lighter and lights up a joint.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a lighter and lights up a joint.", ReturnName(playerid, 0));
 
 		PlayerData[playerid][pSmoking] = 1;
 	    PlayerData[playerid][pSmokeBar] = CreatePlayerProgressBar(playerid, 572.00, 440.00, 56.50, 3.20, -1429936641, 100.0);
@@ -39814,7 +39517,7 @@ CMD:usedrug(playerid, params[])
 		Inventory_Remove(playerid, "Cocaine", 2);
 
 		ApplyAnimation(playerid, "SMOKING", "M_smk_in", 4.1, 0, 0, 0, 0, 0, 1);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out some cocaine and snorts it.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out some cocaine and snorts it.", ReturnName(playerid, 0));
 		GivePlayerHealth(playerid, 20);
 		SendServerMessage(playerid, "By using cocaine, you have received +20 Health.");
 	}
@@ -39832,7 +39535,7 @@ CMD:usedrug(playerid, params[])
 		Inventory_Remove(playerid, "Heroin", 2);
 
 		ApplyAnimation(playerid, "SMOKING", "M_smk_in", 4.1, 0, 0, 0, 0, 0, 1);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out some heroin and injects it.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out some heroin and injects it.", ReturnName(playerid, 0));
 	}
 	/*else if (!strcmp(params, "steroids", true))
 	{
@@ -39849,7 +39552,7 @@ CMD:usedrug(playerid, params[])
 		Inventory_Remove(playerid, "Steroids", 2);
 
 		ApplyAnimation(playerid, "SMOKING", "M_smk_in", 4.1, 0, 0, 0, 0, 0, 1);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out some steroids and swallows them.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out some steroids and swallows them.", ReturnName(playerid, 0));
 	}*/
 	return 1;
 }
@@ -39863,7 +39566,7 @@ CMD:fingerprint(playerid, params[])
 	    return SendErrorMessage(playerid, "You are already using the fingerprint scanner.");
 
     for (new i = 0; i != MAX_DROPPED_ITEMS; i ++) if (DroppedItems[i][droppedModel] && IsPlayerInRangeOfPoint(playerid, 1.5, DroppedItems[i][droppedPos][0], DroppedItems[i][droppedPos][1], DroppedItems[i][droppedPos][2])) {
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s runs the fingerprint scanner over the item.", ReturnName(playerid, 0));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s runs the fingerprint scanner over the item.", ReturnName(playerid, 0));
 
         PlayerData[playerid][pFingerTime] = 3;
         PlayerData[playerid][pFingerItem] = i;
@@ -39992,7 +39695,7 @@ CMD:dropbackpack(playerid, params[])
 	Backpack_Save(id);
 
 	Inventory_Remove(playerid, "Backpack");
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has dropped their backpack.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has dropped their backpack.", ReturnName(playerid, 0));
 
 	SetAccessories(playerid);
 
@@ -40189,7 +39892,7 @@ CMD:tow(playerid, params[])
 	    return SendErrorMessage(playerid, "You can't tow this vehicle.");
 
 	AttachTrailerToVehicle(vehicleid, GetPlayerVehicleID(playerid));
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has hooked a %s onto their tow truck.", ReturnName(playerid, 0), ReturnVehicleName(vehicleid));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has hooked a %s onto their tow truck.", ReturnName(playerid, 0), ReturnVehicleName(vehicleid));
 	return 1;
 }
 
@@ -40208,7 +39911,7 @@ CMD:untow(playerid, params[])
 	    return SendErrorMessage(playerid, "There is no vehicle hooked onto the truck.");
 
 	DetachTrailerFromVehicle(GetPlayerVehicleID(playerid));
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has unhooked the %s from the tow truck.", ReturnName(playerid, 0), ReturnVehicleName(trailerid));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has unhooked the %s from the tow truck.", ReturnName(playerid, 0), ReturnVehicleName(trailerid));
 
 	return 1;
 }
@@ -40261,7 +39964,7 @@ CMD:impound(playerid, params[])
 
 	Car_Save(vid);
 
-	SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "RADIO: %s has impounded a %s for %s.", ReturnName(playerid, 0), ReturnVehicleModelName(CarData[vid][carModel]), FormatNumber(price));
+	SendFactionMessage(PlayerData[playerid][pFaction], COLOR_RADIO, "[Radio]: %s has impounded a %s for %s.", ReturnName(playerid, 0), ReturnVehicleModelName(CarData[vid][carModel]), FormatNumber(price));
 
 	return 1;
 }
@@ -40286,16 +39989,16 @@ CMD:channel(playerid, params[])
 	    return SendErrorMessage(playerid, "The channel can't be below 0 or above 999,999.");
 
 	if (channel == 911 && GetFactionType(playerid) != FACTION_POLICE)
-		return SendErrorMessage(playerid, "This channel is restricted. (POLICE)");
+		return SendErrorMessage(playerid, "This channel is restricted for police officers.");
 
 	if (channel == 912 && GetFactionType(playerid) != FACTION_POLICE && !PlayerData[playerid][pSwatMember])
-		return SendErrorMessage(playerid, "This channel is restricted. (SWAT)");
+		return SendErrorMessage(playerid, "This channel is restricted for the SWAT Team.");
 
 	if (channel == 913 && GetFactionType(playerid) != FACTION_MEDIC)
-		return SendErrorMessage(playerid, "This channel is restricted. (FD)");
+		return SendErrorMessage(playerid, "This channel is restricted for firemen.");
 
 	if (channel == 914 && GetFactionType(playerid) != FACTION_GOV)
-		return SendErrorMessage(playerid, "This channel is restricted. (GOV)");
+		return SendErrorMessage(playerid, "This channel is restricted for the government.");
 
 	PlayerData[playerid][pChannel] = channel;
 
@@ -40327,16 +40030,16 @@ CMD:channel2(playerid, params[])
 	    return SendErrorMessage(playerid, "The channel can't be below 0 or above 999,999.");
 
 	if (channel == 911 && GetFactionType(playerid) != FACTION_POLICE)
-		return SendErrorMessage(playerid, "This channel is restricted. (POLICE)");
+		return SendErrorMessage(playerid, "This channel is restricted for police officers.");
 
 	if (channel == 912 && GetFactionType(playerid) != FACTION_POLICE && !PlayerData[playerid][pSwatMember])
-		return SendErrorMessage(playerid, "This channel is restricted. (SWAT)");
+		return SendErrorMessage(playerid, "This channel is restricted for the SWAT Team.");
 
 	if (channel == 913 && GetFactionType(playerid) != FACTION_MEDIC)
-		return SendErrorMessage(playerid, "This channel is restricted. (FD)");
+		return SendErrorMessage(playerid, "This channel is restricted for firemen.");
 
 	if (channel == 914 && GetFactionType(playerid) != FACTION_GOV)
-		return SendErrorMessage(playerid, "This channel is restricted. (GOV)");
+		return SendErrorMessage(playerid, "This channel is restricted for the government.");
 
 	PlayerData[playerid][pChannel2] = channel;
 
@@ -40367,16 +40070,16 @@ CMD:channel3(playerid, params[])
 	    return SendErrorMessage(playerid, "The channel can't be below 0 or above 999,999.");
 
 	if (channel == 911 && GetFactionType(playerid) != FACTION_POLICE)
-		return SendErrorMessage(playerid, "This channel is restricted. (POLICE)");
+		return SendErrorMessage(playerid, "This channel is restricted for police officers.");
 
 	if (channel == 912 && GetFactionType(playerid) != FACTION_POLICE && !PlayerData[playerid][pSwatMember])
-		return SendErrorMessage(playerid, "This channel is restricted. (SWAT)");
+		return SendErrorMessage(playerid, "This channel is restricted for the SWAT Team.");
 
 	if (channel == 913 && GetFactionType(playerid) != FACTION_MEDIC)
-		return SendErrorMessage(playerid, "This channel is restricted. (FD)");
+		return SendErrorMessage(playerid, "This channel is restricted for firemen.");
 
 	if (channel == 914 && GetFactionType(playerid) != FACTION_GOV)
-		return SendErrorMessage(playerid, "This channel is restricted. (GOV)");
+		return SendErrorMessage(playerid, "This channel is restricted for the government.");
 
 	PlayerData[playerid][pChannel3] = channel;
 
@@ -40407,16 +40110,16 @@ CMD:channel4(playerid, params[])
 	    return SendErrorMessage(playerid, "The channel can't be below 0 or above 999,999.");
 
 	if (channel == 911 && GetFactionType(playerid) != FACTION_POLICE)
-		return SendErrorMessage(playerid, "This channel is restricted. (POLICE)");
+		return SendErrorMessage(playerid, "This channel is restricted for police officers.");
 
 	if (channel == 912 && GetFactionType(playerid) != FACTION_POLICE && !PlayerData[playerid][pSwatMember])
-		return SendErrorMessage(playerid, "This channel is restricted. (SWAT)");
+		return SendErrorMessage(playerid, "This channel is restricted for the SWAT Team.");
 
 	if (channel == 913 && GetFactionType(playerid) != FACTION_MEDIC)
-		return SendErrorMessage(playerid, "This channel is restricted. (FD)");
+		return SendErrorMessage(playerid, "This channel is restricted for firemen.");
 
 	if (channel == 914 && GetFactionType(playerid) != FACTION_GOV)
-		return SendErrorMessage(playerid, "This channel is restricted. (GOV)");
+		return SendErrorMessage(playerid, "This channel is restricted for the government.");
 
 	PlayerData[playerid][pChannel4] = channel;
 
@@ -40440,10 +40143,10 @@ CMD:r(playerid, params[])
 
 	static
 	    string[128];
-	if(PlayerData[playerid][pChannel] == 911 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "This is Police department's freqency only.");
-	if(PlayerData[playerid][pChannel] == 912 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "This is Police department's freqency only.");
-	if(PlayerData[playerid][pChannel] == 913 && GetFactionType(playerid) != FACTION_MEDIC) return SendErrorMessage(playerid, "This is Fire Department's freqency only.");
-	if(PlayerData[playerid][pChannel] == 914 && GetFactionType(playerid) != FACTION_GOV) return SendErrorMessage(playerid, "This is San Andreas Government's freqency only.");
+	if(PlayerData[playerid][pChannel] == 911 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "You cannot use a PD radio channel.");
+	if(PlayerData[playerid][pChannel] == 912 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "You cannot use a PD radio channel.");
+	if(PlayerData[playerid][pChannel] == 913 && GetFactionType(playerid) != FACTION_MEDIC) return SendErrorMessage(playerid, "You cannot use a FD radio channel.");
+	if(PlayerData[playerid][pChannel] == 914 && GetFactionType(playerid) != FACTION_GOV) return SendErrorMessage(playerid, "You cannot use a GOV radio channel.");
 	if (strlen(params) > 64)
 	{
 		format(string, sizeof(string), "** [CH: %d] %s: %.64s",PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
@@ -40481,10 +40184,10 @@ CMD:rlow(playerid, params[])
 
 	static
 	    string[128];
-	if(PlayerData[playerid][pChannel] == 911 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "This is Police department's freqency only.");
-	if(PlayerData[playerid][pChannel] == 912 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "This is Police department's freqency only.");
-	if(PlayerData[playerid][pChannel] == 913 && GetFactionType(playerid) != FACTION_MEDIC) return SendErrorMessage(playerid, "This is Fire Department's freqency only.");
-	if(PlayerData[playerid][pChannel] == 914 && GetFactionType(playerid) != FACTION_GOV) return SendErrorMessage(playerid, "This is San Andreas Government's freqency only.");
+	if(PlayerData[playerid][pChannel] == 911 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "You cannot use a PD radio channel.");
+	if(PlayerData[playerid][pChannel] == 912 && GetFactionType(playerid) != FACTION_POLICE) return SendErrorMessage(playerid, "You cannot use a PD radio channel.");
+	if(PlayerData[playerid][pChannel] == 913 && GetFactionType(playerid) != FACTION_MEDIC) return SendErrorMessage(playerid, "You cannot use a FD radio channel.");
+	if(PlayerData[playerid][pChannel] == 914 && GetFactionType(playerid) != FACTION_GOV) return SendErrorMessage(playerid, "You cannot use a GOV radio channel.");
 	if (strlen(params) > 64)
 	{
 		format(string, sizeof(string), "** [CH: %d] %s: %.64s",PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
@@ -40508,24 +40211,6 @@ CMD:rlow(playerid, params[])
 	}
 	return 1;
 }
-
-/*CMD:jobcmds(playerid, params[])
-{
-	switch (PlayerData[playerid][pJob])
-	{
-	    case 1: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /startdelivery, /stoploading, /unload, /shipments.");
-	    case 2: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /repair, /nitrous.");
-	    case 3: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /taxi, /acceptcall.");
-	    case 4: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /loadcrate.");
-	    case 5: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /mine.");
-	    case 6: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /sellfood.");
-	    case 7: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /takebag, /dumpgarbage, /findgarbage.");
-	    case 8: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /sorting.");
-	    case 9: SendClientMessage(playerid, COLOR_CLIENT, "JOBS:{FFFFFF} /craftparts.");
-	    default: SendErrorMessage(playerid, "You are unemployed at the moment.");
-	}
-	return 1;
-}*/
 
 CMD:createatm(playerid, params[])
 {
@@ -40836,7 +40521,7 @@ CMD:checkvehicles(playerid, params[])
 		if (userid == INVALID_PLAYER_ID)
 			return SendErrorMessage(playerid, "You have specified an invalid player.");
 
-		SendClientMessage(playerid, COLOR_GREY, "----------SAN ANDREAS PROPERTIES DATABASE----------");
+		SendClientMessage(playerid, COLOR_GREY, "----------PROPERTIES DATABASE----------");
   		SendClientMessageEx(playerid, COLOR_ORANGE, "Vehicles registered to %s (ID: %d):", ReturnName(userid, 0), userid);
 
   		for (new i = 0; i < MAX_DYNAMIC_CARS; i ++) if (Car_IsOwner(userid, i)) {
@@ -40848,7 +40533,7 @@ CMD:checkvehicles(playerid, params[])
 		if (!count)
 		    SendClientMessage(playerid, COLOR_WHITE, "That player doesn't own any vehicles.");
 
-		SendClientMessage(playerid, COLOR_GREY, "----------SAN ANDREAS PROPERTIES DATABASE----------");
+		SendClientMessage(playerid, COLOR_GREY, "----------PROPERTIES DATABASE----------");
 	}
 	return 1;
 }
@@ -40870,7 +40555,7 @@ CMD:checkproperties(playerid, params[])
 		if (userid == INVALID_PLAYER_ID)
 			return SendErrorMessage(playerid, "You have specified an invalid player.");
 
-		SendClientMessage(playerid, COLOR_GREY, "----------SAN ANDREAS PROPERTIES DATABASE----------");
+		SendClientMessage(playerid, COLOR_GREY, "----------PROPERTIES DATABASE----------");
   		SendClientMessageEx(playerid, COLOR_ORANGE, "Properties registered to %s (ID: %d):", ReturnName(userid, 0), userid);
 
   		for (new i = 0; i < MAX_HOUSES; i ++) if (House_IsOwner(playerid, i)) {
@@ -40886,7 +40571,7 @@ CMD:checkproperties(playerid, params[])
 		if (!count)
 	    	return SendErrorMessage(playerid, "You don't own any properties.");
 
-		SendClientMessage(playerid, COLOR_GREY, "----------SAN ANDREAS PROPERTIES DATABASE----------");
+		SendClientMessage(playerid, COLOR_GREY, "----------PROPERTIES DATABASE----------");
 	}
 	return 1;
 }
@@ -41464,7 +41149,7 @@ CMD:takebag(playerid, params[])
    	Garbage_Save(id);
 
 	PlayerData[playerid][pCarryTrash] = 1;
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes a trash bag from the garbage bin.", ReturnName(playerid, 0), string);
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes a trash bag from the garbage bin.", ReturnName(playerid, 0), string);
 
 	format(string, sizeof(string), "[Garbage %d]\n{FFFFFF}Trash Capacity: %d/20", id, GarbageData[id][garbageCapacity]);
   	UpdateDynamic3DTextLabelText(GarbageData[id][garbageText3D], COLOR_DEPARTMENT, string);
@@ -41687,9 +41372,6 @@ CMD:camera(playerid, params[])
 
 	return 1;
 }
-
-CMD:gro(playerid, params[]) return cmd_lay(playerid, "3");
-
 
 CMD:lay(playerid, params[])
 {
@@ -42644,7 +42326,7 @@ CMD:boombox(playerid, params[])
 
 		Boombox_Place(playerid);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a boombox and sets it down.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a boombox and sets it down.", ReturnName(playerid, 0));
 		SendServerMessage(playerid, "You have placed your boombox (use \"/boombox\" for options).");
 	}
 	else if (!strcmp(type, "pickup", true))
@@ -42656,7 +42338,7 @@ CMD:boombox(playerid, params[])
 		    return SendErrorMessage(playerid, "You are not in range of your boombox.");
 
 		Boombox_Destroy(playerid);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has picked up their boombox.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has picked up their boombox.", ReturnName(playerid, 0));
 	}
 	else if (!strcmp(type, "url", true))
 	{
@@ -42670,7 +42352,7 @@ CMD:boombox(playerid, params[])
 		    return SendErrorMessage(playerid, "You are not in range of your boombox.");
 
 		Boombox_SetURL(playerid, string);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s turns the dial of the boombox to another station.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s turns the dial of the boombox to another station.", ReturnName(playerid, 0));
 	}
 	return 1;
 }
@@ -42742,9 +42424,9 @@ CMD:search(playerid, params[])
 		SendClientMessageEx(playerid, COLOR_LIGHTRED, "** Heroin (%d)", Inventory_Count(userid, "Heroin"));
 
 	for (new i = 0; i < 12; i ++) if (PlayerData[userid][pGuns][i] && PlayerData[userid][pAmmo][i] > 0) {
-	    SendClientMessageEx(playerid, COLOR_LIGHTRED, "** %s", ReturnWeaponName(PlayerData[userid][pGuns][i]));
+	    SendClientMessageEx(playerid, COLOR_LIGHTRED, "* %s", ReturnWeaponName(PlayerData[userid][pGuns][i]));
 	}
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s starts to search %s for illegal items.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s starts to search %s for illegal items.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	return 1;
 }
 
@@ -42782,7 +42464,7 @@ CMD:searchbp(playerid, params[])
     if (Backpack_HasItem(backpack, "Heroin"))
 		SendClientMessageEx(playerid, COLOR_LIGHTRED, "** Heroin (%d)", Backpack_Count(backpack, "Heroin"));
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has searched %s's backpack for illegal items.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has searched %s's backpack for illegal items.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	return 1;
 }
 
@@ -42852,7 +42534,7 @@ CMD:kickdoor(playerid, params[])
 	    ShowPlayerFooter(playerid, "Attempting to ~r~break~w~ door...");
 	    ApplyAnimation(playerid, "POLICE", "Door_Kick", 4.0, 0, 0, 0, 0, 0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attempts to kick the house's door down.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attempts to kick the house's door down.", ReturnName(playerid, 0));
 	    SetTimerEx("KickHouse", 1500, false, "dd", playerid, id);
 	}
 	else if ((id = Business_Nearest(playerid)) != -1)
@@ -42863,7 +42545,7 @@ CMD:kickdoor(playerid, params[])
 		ShowPlayerFooter(playerid, "Attempting to ~r~break~w~ door...");
         ApplyAnimation(playerid, "POLICE", "Door_Kick", 4.0, 0, 0, 0, 0, 0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attempts to kick the business door down.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attempts to kick the business door down.", ReturnName(playerid, 0));
 	    SetTimerEx("KickBusiness", 1500, false, "dd", playerid, id);
 	}
 	else {
@@ -43195,7 +42877,7 @@ CMD:showlicenses(playerid, params[])
 	else SendClientMessageEx(userid, COLOR_WHITE, "* Firearm License {AA3333}(Not Carrying)");
 
 	SendClientMessage(userid, COLOR_GREY, "-----------------------------------------------------------");
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their licenses and shows them to %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their licenses and shows them to %s.", ReturnName(playerid, 0), ReturnName(userid, 0));
 
 	if(userid == playerid) 	SendClientMessage(userid, COLOR_LIGHTRED, "Additionally you can see /mylicenses to see if you have a license in the DMV database.");
 
@@ -43295,7 +42977,7 @@ CMD:bshipment(playerid, params[])
 	    Business_Save(id);
 
 	    SendServerMessage(playerid, "Your business is no longer requesting a shipment.");
-	    SendJobMessage(1, COLOR_YELLOW, "** %s is no longer requesting a shipment for %s. **", ReturnName(playerid, 0), BusinessData[id][bizName]);
+	    SendJobMessage(1, COLOR_YELLOW, "* %s is no longer requesting a shipment for %s. **", ReturnName(playerid, 0), BusinessData[id][bizName]);
 	}
 	else
 	{
@@ -43306,7 +42988,7 @@ CMD:bshipment(playerid, params[])
 	    Business_Save(id);
 
 	    SendServerMessage(playerid, "Your have requested a shipment for your business.");
-		SendJobMessage(1, COLOR_YELLOW, "** %s is requesting a shipment for %s (/shipments to accept). **", ReturnName(playerid, 0), BusinessData[id][bizName]);
+		SendJobMessage(1, COLOR_YELLOW, "* %s is requesting a shipment for %s (/shipments to accept). **", ReturnName(playerid, 0), BusinessData[id][bizName]);
 	}
 	return 1;
 }
@@ -43378,7 +43060,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 24:
@@ -43389,7 +43071,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 25:
@@ -43400,7 +43082,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s inserts some shells into the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s inserts some shells into the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 27:
@@ -43411,7 +43093,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s inserts some shells into the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s inserts some shells into the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 28:
@@ -43422,7 +43104,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 29:
@@ -43433,7 +43115,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 32:
@@ -43444,7 +43126,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 30:
@@ -43455,7 +43137,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 31:
@@ -43466,7 +43148,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		case 33:
@@ -43477,7 +43159,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
         case 34:
@@ -43488,7 +43170,7 @@ CMD:usemag(playerid, params[])
 	        Inventory_Remove(playerid, "Magazine");
    			PlayReloadAnimation(playerid, 24);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a magazine to the weapon.", ReturnName(playerid, 0));
 			ShowPlayerFooter(playerid, "Press ~y~'H'~w~ to load the weapon.");
 		}
 		default:
@@ -43721,7 +43403,7 @@ CMD:passwep(playerid, params[])
 	ResetWeapon(playerid, weaponid);
 	GiveWeaponToPlayer(userid, weaponid, ammo);
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has passed their %s to %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid), ReturnName(userid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has passed their %s to %s.", ReturnName(playerid, 0), ReturnWeaponName(weaponid), ReturnName(userid, 0));
 	return 1;
 }
 
@@ -43733,7 +43415,7 @@ CMD:exit(playerid, params[])
 	if (PlayerData[playerid][pRangeBooth] != -1)
 	{
 	    Booth_Leave(playerid);
-	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has left the shooting booth.", ReturnName(playerid, 0));
+	    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has left the shooting booth.", ReturnName(playerid, 0));
 		return 1;
 	}
 	else if ((id = House_Inside(playerid)) != -1 && IsPlayerInRangeOfPoint(playerid, 2.5, HouseData[id][houseInt][0], HouseData[id][houseInt][1], HouseData[id][houseInt][2]))
@@ -43824,7 +43506,7 @@ CMD:enter(playerid, params[])
 			{
 		    	PlayerData[playerid][pBankTask] = 1;
 		    	GameTextForPlayer(playerid, "~n~~n~~n~~n~~n~~n~~n~~n~~n~~w~Loading Textures", 1000, 3);
-		    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "Banking", "This is one of the banks of San Andreas. You can manage your bank accounts here.\nEach player has a standard bank account and a savings account for extra funds.\n\nYou can type /bank inside this building to manage either of your bank accounts.\nIf you are near any ATM machine, you can use the /atm command for your banking needs.", "Close", "");
+		    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "Banking", "This is one of the banks of Vice City. You can manage your bank accounts here.\nEach player has a standard bank account and a savings account for extra funds.\n\nYou can type /bank inside this building to manage either of your bank accounts.\nIf you are near any ATM machine, you can use the /atm command for your banking needs.", "Close", "");
 
 			    if (IsTaskCompleted(playerid))
 				{
@@ -43835,7 +43517,7 @@ CMD:enter(playerid, params[])
 			else if (EntranceData[id][entranceType] == 1 && !PlayerData[playerid][pTestTask])
 			{
 		    	PlayerData[playerid][pTestTask] = 1;
-		    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "DMV", "The DMV is where a player can attempt the driving test to obtain their licenses.\nYou must avoid hitting obstacles, damaging the vehicle or speeding during the test.\n\nIt is legally required to possess a driving license to drive in San Andreas.\nDriving without a license can result in several consequences by law enforcement.", "Close", "");
+		    	Dialog_Show(playerid, ShowOnly, DIALOG_STYLE_MSGBOX, "DMV", "The DMV is where a player can attempt the driving test to obtain their licenses.\nYou must avoid hitting obstacles, damaging the vehicle or speeding during the test.\n\nIt is legally required to possess a driving license to drive in Vice City.\nDriving without a license can result in several consequences by law enforcement.", "Close", "");
 
 			    if (IsTaskCompleted(playerid))
 				{
@@ -43993,7 +43675,7 @@ CMD:enter(playerid, params[])
 		PlayerTextDrawSetString(playerid, PlayerData[playerid][pTextdraws][81], "~b~Targets:~w~ 0/10");
 
 		PlayerTextDrawShow(playerid, PlayerData[playerid][pTextdraws][81]);
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has entered the shooting booth.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has entered the shooting booth.", ReturnName(playerid, 0));
 		return 1;
 	}
 	return 1;
@@ -44157,7 +43839,7 @@ CMD:whisper(playerid, params[])
 	    SendClientMessageEx(userid, COLOR_YELLOW, "** Whisper from %s (%d): %s **", ReturnName(playerid, 0), playerid, text);
 	    SendClientMessageEx(playerid, COLOR_YELLOW, "** Whisper to %s (%d): %s **", ReturnName(userid, 0), userid, text);
 	}
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s mutters something in %s's ear.", ReturnName(playerid, 0), ReturnName(userid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s mutters something in %s's ear.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	return 1;
 }
 
@@ -44170,7 +43852,7 @@ CMD:mask(playerid, params[])
 	{
 		case 0:
 		{
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a mask and puts it on.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a mask and puts it on.", ReturnName(playerid, 0));
 		    PlayerData[playerid][pMaskOn] = 1;
 			foreach (new i : Player)
 			{
@@ -44180,7 +43862,7 @@ CMD:mask(playerid, params[])
 		case 1:
 		{
 		    PlayerData[playerid][pMaskOn] = 0;
-		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes their mask off and puts it away.", ReturnName(playerid, 0));
+		    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes their mask off and puts it away.", ReturnName(playerid, 0));
 			foreach (new i : Player)
 			{
 				ShowPlayerNameTagForPlayer(i, playerid, 1);
@@ -44265,14 +43947,14 @@ CMD:siren(playerid, params[])
 			CoreVehicles[vehicleid][vehSirenObject] = CreateDynamicObject(18646, 0.0, 0.0, 1000.0, 0.0, 0.0, 0.0);
 
 		    AttachDynamicObjectToVehicle(CoreVehicles[vehicleid][vehSirenObject], vehicleid, -fSeat[0], fSeat[1], fSize[2] / 2.0, 0.0, 0.0, 0.0);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s turns on the vehicle's siren.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s turns on the vehicle's siren.", ReturnName(playerid, 0));
 		}
 		case 1:
 		{
 		    CoreVehicles[vehicleid][vehSirenOn] = 0;
 
 			DestroyDynamicObject(CoreVehicles[vehicleid][vehSirenObject]);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s turns off the vehicle's siren.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s turns off the vehicle's siren.", ReturnName(playerid, 0));
 		}
 	}
 	return 1;
@@ -44298,7 +43980,7 @@ CMD:siren2(playerid, params[])
 				CoreVehicles[vehicleid][vehSirenObject] = CreateDynamicObject(19620, 0.0, 0.0, 1000.0, 0.0, 0.0, 0.0);
 
 				AttachDynamicObjectToVehicle(CoreVehicles[vehicleid][vehSirenObject], vehicleid, 0.0011, -1.6380, 0.4122, 0.0, 0.0, 0.0);
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a siren to the vehicle.", ReturnName(playerid, 0));
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a siren to the vehicle.", ReturnName(playerid, 0));
 				return 1;
 			}
 			static
@@ -44312,14 +43994,14 @@ CMD:siren2(playerid, params[])
 			CoreVehicles[vehicleid][vehSirenObject] = CreateDynamicObject(19620, 0.0, 0.0, 1000.0, 0.0, 0.0, 0.0);
 
 		    AttachDynamicObjectToVehicle(CoreVehicles[vehicleid][vehSirenObject], vehicleid, 0.0, fSeat[1], fSize[2] / 1.85, 0.0, 0.0, 0.0);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a siren to the vehicle.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a siren to the vehicle.", ReturnName(playerid, 0));
 		}
 		case 1:
 		{
 		    CoreVehicles[vehicleid][vehSirenOn] = 0;
 
 			DestroyDynamicObject(CoreVehicles[vehicleid][vehSirenObject]);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s detaches the siren from the vehicle.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s detaches the siren from the vehicle.", ReturnName(playerid, 0));
 		}
 	}
 	return 1;
@@ -44378,14 +44060,14 @@ CMD:traffic(playerid, params[])
 			CoreVehicles[vehicleid][vehSirenObject] = CreateDynamicObject(19294, 0.0, 0.0, 1000.0, 0.0, 0.0, 0.0);
 
 		    AttachDynamicObjectToVehicle(CoreVehicles[vehicleid][vehSirenObject], vehicleid, -fSeat[0], fSeat[1], fSize[2] / 2.0, 0.0, 0.0, 0.0);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attaches a portable traffic light to the vehicle.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attaches a portable traffic light to the vehicle.", ReturnName(playerid, 0));
 		}
 		case 1:
 		{
 		    CoreVehicles[vehicleid][vehSirenOn] = 0;
 
 			DestroyDynamicObject(CoreVehicles[vehicleid][vehSirenObject]);
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s detaches the portable traffic light from the vehicle.", ReturnName(playerid, 0));
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s detaches the portable traffic light from the vehicle.", ReturnName(playerid, 0));
 		}
 	}
 	return 1;
@@ -44437,7 +44119,7 @@ CMD:breakcuffs(playerid, params[])
 	    return SendErrorMessage(playerid, "You can't pick your own handcuffs.");
 
 	SetTimerEx("BreakCuffs", 3000, false, "dd", playerid, userid);
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s attempts to pick the cuffs with a crowbar.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s attempts to pick the cuffs with a crowbar.", ReturnName(playerid, 0));
 	return 1;
 }
 
@@ -44446,7 +44128,7 @@ CMD:dice(playerid, params[])
 	new
 		number = random(6) + 1;
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s rolls a dice landing on the number %d.", ReturnName(playerid, 0), number);
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s rolls a dice landing on the number %d.", ReturnName(playerid, 0), number);
 	return 1;
 }
 
@@ -44880,7 +44562,7 @@ CMD:picklock(playerid, params[])
 	PlayerData[playerid][pPicking] = 1;
 	PlayerData[playerid][pPickCar] = id;
 
-	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out a crowbar and picks the lock.", ReturnName(playerid, 0));
+	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out a crowbar and picks the lock.", ReturnName(playerid, 0));
 	SendServerMessage(playerid, "Please wait 60 seconds while the lock is picked.");
 	return 1;
 }*/
@@ -45147,47 +44829,47 @@ CMD:call(playerid, params[])
 		PlayerData[playerid][pEmergency] = 1;
 		PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
-		SendClientMessage(playerid, COLOR_CYAN, "[PHONE] {FFFFFF}Mechanic Dispatch: 911, This is Monica speaking. Which service are you in need of? \"Police\", \"FD\" or \"Both\"?");
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Mechanic Dispatch: 911, This is Monica speaking. Which service are you in need of? \"Police\", \"FD\" or \"Both\"?");
 	}
 	else if (number == 1222)
 	{
 	    PlayerData[playerid][pTaxiCalled] = 1;
 	    PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
-		SendClientMessage(playerid, COLOR_CYAN, "[PHONE] {FFFFFF}Mechanic Dispatch: The taxi department has been notified of your call.");
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Mechanic Dispatch: The taxi department has been notified of your call.");
 
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has hung up their cellphone.", ReturnName(playerid, 0));
-		SendJobMessage(3, COLOR_YELLOW, "** %s is requesting a taxi at %s (use /acceptcall to accept).", ReturnName(playerid, 0), GetPlayerLocation(playerid));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has hung up their cellphone.", ReturnName(playerid, 0));
+		SendJobMessage(3, COLOR_YELLOW, "* %s is requesting a taxi at %s (use /acceptcall to accept).", ReturnName(playerid, 0), GetPlayerLocation(playerid));
 	}
 	else if (number == 115)
 	{
 	    PlayerData[playerid][pMechanicCalled] = 1;
 	    PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
-		SendClientMessage(playerid, COLOR_CYAN, "[PHONE] {FFFFFF}Mechanic Dispatch: The Mechanic department has been notified of your call.");
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Mechanic Dispatch: The Mechanic department has been notified of your call.");
 
-        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s has hung up their cellphone.", ReturnName(playerid, 0));
-		SendJobMessage(2, COLOR_YELLOW, "** %s is requesting a mechanic at %s (use /acceptmechanic to accept).", ReturnName(playerid, 0), GetPlayerLocation(playerid));
+        SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has hung up their cellphone.", ReturnName(playerid, 0));
+		SendJobMessage(2, COLOR_YELLOW, "* %s is requesting a mechanic at %s (use /acceptmechanic to accept).", ReturnName(playerid, 0), GetPlayerLocation(playerid));
 	}
 	else if (number == 222)
 	{
 	    PlayerData[playerid][pPlaceAd] = 1;
 	    PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
 
 		if (PlayerData[playerid][pPlayingHours] < 4) {
-            SendClientMessage(playerid, COLOR_CYAN, "[PHONE] {FFFFFF}Advertisement Agency: Sorry, you must play 4 hours to place an advertisement.");
+            SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Advertisement Agency: Sorry, you must play 4 hours to place an advertisement.");
 		    cmd_hangup(playerid, "\1");
 		}
 		else if (PlayerData[playerid][pAdTime] < 1) {
-			SendClientMessage(playerid, COLOR_CYAN, "[PHONE] {FFFFFF}Advertisement Agency: Please say \"yes\" if you wish to advertise for $500.");
+			SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Advertisement Agency: Please say \"yes\" if you wish to advertise for $500.");
 		}
 		else {
-		    SendClientMessage(playerid, COLOR_CYAN, "[PHONE] {FFFFFF}Advertisement Agency: You've already advertised in the last 2 minutes. Please try again later.");
+		    SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Advertisement Agency: You've already advertised in the last 2 minutes. Please try again later.");
 		    cmd_hangup(playerid, "\1");
 		}
 	}
@@ -45195,13 +44877,13 @@ CMD:call(playerid, params[])
 	{
 	    PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
 
 		if (PlayerData[playerid][pPlayingHours] < 4) {
-            SendClientMessage(playerid, COLOR_CYAN, "[PHONE]{FFFFFF}Billboard Agency: Sorry, you must play 4 hours to rent a billboard.");
+            SendClientMessage(playerid, COLOR_CYAN, "[Phone]{FFFFFF}Billboard Agency: Sorry, you must play 4 hours to rent a billboard.");
 		    cmd_hangup(playerid, "\1");
 		}
-		SendClientMessageEx(playerid, COLOR_CYAN, "[PHONE]{FFFFFF}Billboard Agency: Hello, this is the Los Santos Billboard Agency, please listen to the following choices!");
+		SendClientMessageEx(playerid, COLOR_CYAN, "[Phone]{FFFFFF}Billboard Agency: Hello, this is the Los Santos Billboard Agency, please listen to the following choices!");
 		ViewBillboards(playerid);
 	}
 	else if ((targetid = GetNumberOwner(number)) != INVALID_PLAYER_ID)
@@ -45221,18 +44903,18 @@ CMD:call(playerid, params[])
 		PlayerData[targetid][pCallLine] = playerid;
 		PlayerData[playerid][pCallLine] = targetid;
 
-		SendClientMessageEx(playerid, COLOR_CYAN, "[PHONE]:{FFFFFF} Attempting to dial #%d, please wait for an answer...", number);
-		SendClientMessageEx(targetid, COLOR_CYAN, "[PHONE]:{FFFFFF} Incoming call from #%d (type \"/pickup\" to answer the phone).", PlayerData[playerid][pPhone]);
+		SendClientMessageEx(playerid, COLOR_CYAN, "[Phone]:{FFFFFF} Attempting to dial #%d, please wait for an answer...", number);
+		SendClientMessageEx(targetid, COLOR_CYAN, "[Phone]:{FFFFFF} Incoming call from #%d (type \"/pickup\" to answer the phone).", PlayerData[playerid][pPhone]);
 
         PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
         PlayerPlaySoundEx(targetid, 23000);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
 	}
 	else if (number == 58696)
 	{
 	    if (GetFactionType(playerid) != FACTION_GANG_DRUGS && GetFactionType(playerid) != FACTION_GANG_GUNS)
-	    	return SendErrorMessage(playerid, "[PHONE]:{FFFFFF} This number is unavaliable right now, please try again later.");
+	    	return SendErrorMessage(playerid, "[Phone]:{FFFFFF} This number is unavaliable right now, please try again later.");
 
 	    if (PlayerData[playerid][pFactionRank] < FactionData[PlayerData[playerid][pFaction]][factionRanks] - 1)
 	    	return SendErrorMessage(playerid, "[PHONE:]{FFFFFF} This number is unavaliable right now, please try again later.");
@@ -45242,8 +44924,8 @@ CMD:call(playerid, params[])
 			PlayerData[playerid][pDealerCallDrugs] = 1;
 			PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
-			SendClientMessage(playerid, COLOR_CYAN, "[PHONE]: {FFFFFF}Local Dealer: Yo, what you need today? \"Drugs\" (10k)");
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+			SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Local Dealer: Yo, what you need today? \"Drugs\" (10k)");
 		}
 
 		if(GetFactionType(playerid) == FACTION_GANG_GUNS)
@@ -45251,9 +44933,9 @@ CMD:call(playerid, params[])
 			PlayerData[playerid][pDealerCallGuns] = 1;
 			PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
-			SendClientMessage(playerid, COLOR_CYAN, "[PHONE]: {FFFFFF}Local Dealer: Yo, what you need today? \"Melee Parts\" (55k), \"Pistol Parts\" (30k), \"SMG Parts\" (100k)...");
-			SendClientMessage(playerid, COLOR_CYAN, "[PHONE]: {FFFFFF}Local Dealer: ...\"Shotgun Parts\" (18k), \"Rifle Parts\" (130k)");
+			SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+			SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Local Dealer: Yo, what you need today? \"Melee Parts\" (55k), \"Pistol Parts\" (30k), \"SMG Parts\" (100k)...");
+			SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}Local Dealer: ...\"Shotgun Parts\" (18k), \"Rifle Parts\" (130k)");
 		}
 
 	}
@@ -45262,8 +44944,8 @@ CMD:call(playerid, params[])
 		PlayerData[playerid][pLoanAsk] = 1;
 		PlayerPlaySound(playerid, 3600, 0.0, 0.0, 0.0);
 
-		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
-		SendClientMessage(playerid, COLOR_CYAN, "[PHONE]: {FFFFFF}BCG Dispatch: Hello. What are you in need of? Say: \"Licensing\" or \"Help\"?");
+		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s takes out their cellphone and places a call.", ReturnName(playerid, 0));
+		SendClientMessage(playerid, COLOR_CYAN, "[Phone]: {FFFFFF}BCG Dispatch: Hello. What are you in need of? Say: \"Licensing\" or \"Help\"?");
 	}
 	else
 	{

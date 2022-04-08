@@ -2,16 +2,16 @@
 #define strcpy(%0,%1,%2) strcat((%0[0] = '\0', %0), %1, %2)
 
 #define SendServerMessage(%0,%1) \
-	SendClientMessageEx(%0, COLOR_LIGHTRED, "[Alert]:{FFFFFF} "%1)
+	SendClientMessageEx(%0, COLOR_VICE_DARKPINK, "[Alert]:{FFFFFF} "%1) // old color "COLOR_LIGHTRED"
 
 #define SendSyntaxMessage(%0,%1) \
-	SendClientMessageEx(%0, COLOR_LIGHTRED, "Correct usage:{FFFFFF} "%1) // COLOR_YELLOW
+	SendClientMessageEx(%0, COLOR_LIGHTRED, "Correct usage:{FFFFFF} "%1) // old color "COLOR_LIGHTRED"
 
 #define SendErrorMessage(%0,%1) \
-	SendClientMessageEx(%0, COLOR_LIGHTRED, "[Error]:{FFFFFF} "%1)
+	SendClientMessageEx(%0, COLOR_LIGHTRED, "[Error]:{FFFFFF} "%1) // old color "COLOR_LIGHTRED"
 
 #define SendAdminAction(%0,%1) \
-	SendClientMessageEx(%0, COLOR_LIGHTRED, "[Admin]:{FFFFFF} "%1) // COLOR_YELLOW
+	SendClientMessageEx(%0, COLOR_LIGHTRED, "[Admin]:{FFFFFF} "%1) // old color "COLOR_LIGHTRED"
 
 #define PRESSED(%0) \
 	(((newkeys & (%0)) == (%0)) && ((oldkeys & (%0)) != (%0)))

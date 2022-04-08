@@ -12841,8 +12841,8 @@ forward LoadVCMap();
 public LoadVCMap()
 {
     for(new i = 0; i < sizeof(VCinteriors); i ++) {
-        VCinteriors[i][intEntrance] = CreateDynamic3DTextLabel("Press 'F' to exit.", 0xFFFFFFFF, VCinteriors[i][enexX1], VCinteriors[i][enexY1], VCinteriors[i][enexZ1], 10.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, VICECITY_VWORLD, VCinteriors[i][enexInt1], -1, 10.0, -1, 0);
-        VCinteriors[i][intExit] = CreateDynamic3DTextLabel("Press 'F' to enter.", 0xFFFFFFFF, VCinteriors[i][enexX2], VCinteriors[i][enexY2], VCinteriors[i][enexZ2], 30.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, VICECITY_VWORLD, VCinteriors[i][enexInt2], -1, 20.0, -1, 0);
+        VCinteriors[i][intEntrance] = CreateDynamic3DTextLabel("[DEBUG VC INTERIOR]: /vctest exit.", 0xFFFFFFFF, VCinteriors[i][enexX1], VCinteriors[i][enexY1], VCinteriors[i][enexZ1], 10.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, VICECITY_VWORLD, VCinteriors[i][enexInt1], -1, 10.0, -1, 0);
+        VCinteriors[i][intExit] = CreateDynamic3DTextLabel("[DEBUG VC INTERIOR]:/vctest to enter.", 0xFFFFFFFF, VCinteriors[i][enexX2], VCinteriors[i][enexY2], VCinteriors[i][enexZ2], 30.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, VICECITY_VWORLD, VCinteriors[i][enexInt2], -1, 20.0, -1, 0);
     }
 
     new totalModels, timedModels, normalModels;
