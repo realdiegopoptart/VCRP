@@ -186,7 +186,7 @@ stock Float:DistanceCameraTargetToLocation(Float:fCameraX, Float:fCameraY, Float
 forward OnPlayerRepairTimer(playerid);
 public OnPlayerRepairTimer(playerid)
 {
-    SendClientMessage(playerid, -1, "[Info]: Pay n' Sprays are opened again.");
+    SendClientMessage(playerid, -1, "[PnS]: {FFFFFF}Pay n' Sprays are opened again.");
 	PlayerData[playerid][pUnableToRepair] = 0;
     return 1;
 }
@@ -198,7 +198,7 @@ public OnPlayerVehicleDamage(playerid,vehicleid,Float:Damage)
     {
         GetPlayerHealth(playerid, health);
         SetPlayerHealth(playerid, health - 5);
-        SendClientMessage(playerid, COLOR_PURPLE, "** Your health has been decreased as you hit something with your vehicle. **");
+        SendClientMessage(playerid, COLOR_PURPLE, "* Your health has been decreased as you hit something with your vehicle. *");
     }
 }
 
@@ -403,359 +403,6 @@ forward STime(playerid);
 public STime(playerid)
 {
 	SetPlayerTime(playerid, 00,00);
-}
-
-forward PlayerPutBombInVehicle(seconds, playerid, vehicleid, bomb_type, bomb_timer);
-public PlayerPutBombInVehicle(seconds, playerid, vehicleid, bomb_type, bomb_timer)
-{
-	if(!seconds)
-	{
-		TogglePlayerControllable(playerid, 1);
-		new
-			Float: 	f_Pos[3];
-
-		GetVehiclePos(vehicleid, f_Pos[0], f_Pos[1], f_Pos[2]);
-
-		if(!IsPlayerInRangeOfPoint(playerid, BOMB_USE_DISTANCE, f_Pos[0], f_Pos[1], f_Pos[2]))
-		{
-			SendClientMessage(playerid, COLOR_GREY, "ERROR: You are not close enough to this vehicle anymore.");
-			return 1;
-		}
-
-		g_Bomb_Vehicles[vehicleid][bv_i_ArmedType] = bomb_type;
-		g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] = bomb_timer;
-		g_Bomb_Vehicles[vehicleid][bv_i_BombOwner] = playerid;
-
-
-		if(bomb_type == VEHICLE_BOMB_TYPE_TIMER)
-		{
-			//SetTimerEx("BombActivated", 1000, 0, "d", vehicleid);
-			BombActivated(vehicleid);
-		}
-
-		DeletePVar(playerid, "PuttingBomb");
-
-		SendClientMessage(playerid, COLOR_ORANGE, "You have planted and armed the bomb.");
-
-		GameTextForPlayer(playerid, "~r~Bomb armed", 2000, 3);
-
-		TogglePlayerControllable(playerid, 1);
-
-		return 1;
-	}
-
-	new
-		szString[69];
-
-	format(szString, sizeof(szString), "~g~Arming bomb...~n~~r~%d ~n~ ~y~Type ~r~/bomb put~y~ again to stop", seconds);
-	GameTextForPlayer(playerid, szString, 2000, 3);
-
-	SetPVarInt(playerid, "PuttingBomb", SetTimerEx("PlayerPutBombInVehicle", 1000, 0, "ddddd", seconds - 1, playerid, vehicleid, bomb_type, bomb_timer));
-
-	return 1;
-}
-
-forward BombActivated(vehicleid);
-public BombActivated(vehicleid)
-{
-	if(g_Bomb_Vehicles[vehicleid][bv_b_BombDisarmed])
-	{
-		return 1;
-	}
-
-	if(!g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer])
-	{
-		ExplodeVehicleBomb(vehicleid);
-		g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer]--;
-		SetTimerEx("BombActivated", 400, 0, "d", vehicleid);
-		return 1;
-	}
-
-	new
-		Float:	f_Pos[3];
-
-	GetVehiclePos(vehicleid, f_Pos[0], f_Pos[1], f_Pos[2]);
-
-	if(g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] < 0)
-	{
-		CreateExplosion(f_Pos[0], f_Pos[1], f_Pos[2], 4, 3.0); // Extra effects
-		CreateExplosion(f_Pos[0], f_Pos[1], f_Pos[2], 5, 3.0); // Extra effects
-
-		if(g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] == -2)
-		{
-			CreateExplosion(f_Pos[0], f_Pos[1], f_Pos[2], 1, 4.0); // Small explosion
-		}
-
-		if(g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] < -3)
-		{
-			return 1;
-		}
-
-		g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer]--;
-		SetTimerEx("BombActivated", 400, 0, "d", vehicleid);
-		return 1;
-	}
-
-	g_Bomb_Vehicles[vehicleid][bv_b_BombActivated] = true;
-
-	if(g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] == 1)
-	{
-		PlayVehicleBombSound(vehicleid, 17803); // Clicking sound
-	}
-
-	if(g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] == 2)
-	{
-		PlayVehicleBombSound(vehicleid, 6400); // Digital sound
-	}
-
-	g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer]--;
-
-	SetTimerEx("BombActivated", 1000, 0, "d", vehicleid);
-
-	return 1;
-}
-
-forward ArmSpeedBomb(vehicleid);
-public ArmSpeedBomb(vehicleid)
-{
-	if(GetVehicleSpeed(vehicleid) < 40.0)
-	{
-		g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] = 2;
-		BombActivated(vehicleid);
-		return 1;
-	}
-
-	SetTimerEx("ArmSpeedBomb", 400, 0, "d", vehicleid);
-
-	return 1;
-}
-
-forward CheckForBombs(playerid, vehicleid);
-public CheckForBombs(playerid, vehicleid)
-{
-	DeletePVar(playerid, "CheckingForBombs");
-	SetPVarInt(playerid, "CheckedCarForBombs", vehicleid);
-
-	new
-		Float: f_vPos[3];
-
-	GetVehiclePos(vehicleid, f_vPos[0], f_vPos[1], f_vPos[2]);
-
-	if(!IsPlayerInRangeOfPoint(playerid, BOMB_USE_DISTANCE, f_vPos[0], f_vPos[1], f_vPos[2]))
-	{
-		SendClientMessage(playerid, COLOR_GREY, "You are not close enough to the vehicle anymore.");
-		return 1;
-	}
-
-	if(g_Bomb_Vehicles[vehicleid][bv_i_ArmedType])
-	{
-		SendClientMessage(playerid, COLOR_RED, "You have found an armed bomb inside the vehicle!");
-		if(g_Bomb_Vehicles[vehicleid][bv_b_BombActivated])
-		{
-			SendClientMessage(playerid, COLOR_RED, "WARNING! THE BOMB IS ACTIVE AND ABOUT TO BLOW!");
-		}
-		SetPVarInt(playerid, "FoundBombInCar", vehicleid);
-	}
-
-	else if(g_Bomb_Vehicles[vehicleid][bv_b_BombDisarmed])
-	{
-		SendClientMessage(playerid, COLOR_ORANGE, "You have found a disarmed bomb.");
-	}
-
-	else
-	{
-		SendClientMessage(playerid, COLOR_ORANGE, "You didn't find any bombs.");
-	}
-
-	return 1;
-}
-
-forward DisarmBomb(playerid, vehicleid);
-public DisarmBomb(playerid, vehicleid)
-{
-	DeletePVar(playerid, "DisarmingBomb");
-
-	new
-		Float: f_vPos[3];
-
-	GetVehiclePos(vehicleid, f_vPos[0], f_vPos[1], f_vPos[2]);
-
-	if(!IsPlayerInRangeOfPoint(playerid, BOMB_USE_DISTANCE, f_vPos[0], f_vPos[1], f_vPos[2]))
-	{
-		SendClientMessage(playerid, COLOR_GREY, "You are not close enough to the vehicle anymore.");
-		return 1;
-	}
-
-	ResetBombInfo(vehicleid);
-
-	g_Bomb_Vehicles[vehicleid][bv_b_BombDisarmed] = true;
-
-	SendClientMessage(playerid, COLOR_ORANGE, "You have disarmed the bomb and the bomb has been added to your inventory.");
-	Inventory_Add(playerid, "Bomb", 1654);
-
-	return 1;
-}
-
-forward flushExplosiveData();
-public flushExplosiveData()
-{
-	for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-	{
-		destroyExplosive(i);
-	}
-}
-
-forward detonateExplosives(playerid);
-public detonateExplosives(playerid)
-{
-	/*
-	    I've added a `count` variable in here for the purpose of not repeating
-	    a snippet of code. Say for example you wanted to give the player a wanted level
-	    for exploding a bomb, but they place down 10 bombs. That's 10x the wanted level!
-	    Instead, you can use the `count` variable to control this.
-
-	    if (count > 1)
-	    {
-	        // Run this code once
-	    }
-	*/
-
-	new
-		count = 0
-	;
-	for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-	{
-		if(explosiveData[i][explosiveOwner] == playerid)
-		{
-			detonateExplosive(playerid, explosiveData[i][explosiveSlot]);
-			count++;
-		}
-	}
-}
-
-forward detonateExplosive(playerid, playerSlot);
-public detonateExplosive(playerid, playerSlot)
-{
-	new
-		bool:found
-	;
-
-	for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-	{
-		if(explosiveData[i][explosiveOwner] == playerid)
-		{
-			if(explosiveData[i][explosiveSlot] == playerSlot)
-			{
-				/*
-				    Create the explosion at the XYZ provided....
-				    This WILL cause player damage.
-				*/
-				CreateExplosion(explosiveData[i][explosivePosition][0], explosiveData[i][explosivePosition][1], explosiveData[i][explosivePosition][2], 2, 5.0);
-
-				destroyExplosive(i); // destroy this explosive
-
-				found = true;
-			}
-		}
-	}
-
-	if (!found)
-	{
-	    // No explosives found
-	}
-}
-
-forward checkPlayerExplosives(playerid);
-public checkPlayerExplosives(playerid)
-{
-	new returnValue = 0;
-
-	for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-	{
-		if(explosiveData[i][explosiveOwner] == playerid)
-		{
-			returnValue++;
-		}
-	}
-
-	return returnValue;
-}
-
-forward destroyPlayersExplosives(playerid);
-public destroyPlayersExplosives(playerid)
-{
-	for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-	{
-		if(explosiveData[i][explosiveOwner] == playerid)
-		{
-			destroyExplosive(i);
-		}
-	}
-}
-
-forward findExplosiveSlot();
-public findExplosiveSlot()
-{
-	for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-	{
-		if(explosiveData[i][explosiveOwner] == INVALID_PLAYER_ID)
-		{
-			return i;
-		}
-	}
-
-	return INVALID_PLAYER_ID;
-}
-
-forward destroyExplosive(explosiveEyeD);
-public destroyExplosive(explosiveEyeD)
-{
-	explosiveData[explosiveEyeD][explosiveOwner] 			= INVALID_PLAYER_ID;
-	explosiveData[explosiveEyeD][explosiveSlot]				= INVALID_PLAYER_ID;
-	explosiveData[explosiveEyeD][explosiveTime] 			= INVALID_PLAYER_ID;
-	explosiveData[explosiveEyeD][explosivePosition][0] 		= 0.0000;
-	explosiveData[explosiveEyeD][explosivePosition][1] 		= 0.0000;
-	explosiveData[explosiveEyeD][explosivePosition][2]		= 0.0000;
-	Delete3DTextLabel(explosiveData[explosiveEyeD][explosiveLabel]);
-	DestroyDynamicObject(explosiveData[explosiveEyeD][explosiveObject]);
-
-	return 1;
-}
-
-forward DefuseC4(playerid, idOfExplosive);
-public DefuseC4(playerid, idOfExplosive)
-{
-	new
-		defuseMessage[128],
-		pName[MAX_PLAYER_NAME]
-	;
-
-	GetPlayerName(explosiveData[idOfExplosive][explosiveOwner], pName, sizeof(pName));
-
-	if (explosiveData[idOfExplosive][explosiveOwner] != INVALID_PLAYER_ID)
-	{
-		new explosion = random(3);
-
-		switch(explosion)
-		{
-			case 0 .. 1:
-			{
-				format(defuseMessage, sizeof(defuseMessage), "Oh no! You cut the wrong wire and %s's explosive blew up in your face.", pName);
-				SendClientMessage(playerid, COLOR_RED, defuseMessage);
-				detonateExplosive(explosiveData[idOfExplosive][explosiveOwner], explosiveData[idOfExplosive][explosiveSlot]);
-			}
-
-			case 2:
-			{
-				format(defuseMessage, sizeof(defuseMessage), "You have defused an explosive. It belogs to %s. The bomb has been added to your inventory.", pName);
-				SendClientMessage(playerid, COLOR_ORANGE, defuseMessage);
-				destroyExplosive(idOfExplosive);
-				Inventory_Add(playerid, "Bomb", 1654);
-			}
-		}
-	}
-
-	ClearAnimations(playerid);
 }
 
 forward PlaceFire(playerid);
@@ -1096,7 +743,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
   			else
 	    	{
       			new string[128];
-	        	format(string, sizeof(string), "[Faction Mod]: %s is requesting their faction's name to be changed to ''%s''.", ReturnName(playerid, 0), playerid, inputtext);
+	        	format(string, sizeof(string), "[Faction Mod]: {FFFFFF}%s is requesting their faction's name to be changed to ''%s''.", ReturnName(playerid, 0), playerid, inputtext);
 				SendFactionAlert(COLOR_NEWGREEN, string);
     		}
 		}
@@ -1176,20 +823,6 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	                    	PlayerData[playerid][pMoney] -= 14000;
 	                    	SetPlayerArmour(playerid, 100.0);
 	                    	SendClientMessage(playerid, COLOR_WHITE, "You have purchased a Heavy Armored Vest from the Black Market for the price of $14000.");
-						}
-						else return SendErrorMessage(playerid, "You don't have enough money to finish the purchase.");
-            		}
-            		case 5:
-		            {
-               			if(PlayerData[playerid][pMoney] >= 60000)
-                 		{
-	                    	PlayerData[playerid][pMoney] -= 60000;
-	                    	new id = Inventory_Add(playerid, "Bomb", 1654);
-
-							if (id == -1)
-        						return SendErrorMessage(playerid, "You don't have any inventory slots left.");
-
-	                    	SendClientMessage(playerid, COLOR_WHITE, "You have purchased a Bomb from the Black Market for the price of $60000.");
 						}
 						else return SendErrorMessage(playerid, "You don't have enough money to finish the purchase.");
             		}
@@ -1504,13 +1137,6 @@ stock TerminateConnection(playerid)
 		}
 	}
 
-	for___loop(new i; i < MAX_VEHICLES; i++)
-	{
-		if(g_Bomb_Vehicles[i][bv_i_BombOwner] == playerid)
-		{
-			g_Bomb_Vehicles[i][bv_i_BombOwner] = INVALID_PLAYER_ID;
-		}
-	}
 	SQL_SaveCharacter(playerid);
 	ResetNameTag(playerid);
 	Report_Clear(playerid);
@@ -1579,46 +1205,6 @@ stock CreateBlood(playerid)
 	SetTimerEx("DestroyBlood", 1500, false, "d", CreateDynamicObject(18668, x, y, z - 1.5, 0.0, 0.0, 0.0));
 
 	return 1;
-}
-
-stock ExplodeVehicleBomb(vehicleid)
-{
-	SetVehicleHealth(vehicleid, 50.0);
-
-	new
-		Float: f_vPos[3];
-
-	GetVehiclePos(vehicleid, f_vPos[0], f_vPos[1], f_vPos[2]);
-
-	CreateExplosion(f_vPos[0], f_vPos[1], f_vPos[2], 4, 5.0); // Extra effects
-	CreateExplosion(f_vPos[0], f_vPos[1], f_vPos[2], 5, 5.0); // Extra effects
-
-	CreateExplosion(f_vPos[0], f_vPos[1], f_vPos[2], 6, 10.0); // Big one
-
-	ResetBombInfo(vehicleid);
-}
-
-stock PlayVehicleBombSound(vehicleid, sound)
-{
-	new
-		Float:	v_Pos[3];
-
-	GetVehiclePos(vehicleid, v_Pos[0], v_Pos[1], v_Pos[2]);
-
-	for___loop(new i; i < MAX_PLAYERS; i++)
-	{
-		if(IsPlayerInVehicle(i, vehicleid))
-		{
-			PlayerPlaySound(i, sound, v_Pos[0], v_Pos[1],v_Pos[2]);
-		}
-		else
-		{
-			if(IsPlayerInRangeOfPoint(i, 10.0, v_Pos[0], v_Pos[1], v_Pos[2]))
-			{
-				PlayerPlaySound(i, sound, v_Pos[0], v_Pos[1],v_Pos[2]);
-			}
-		}
-	}
 }
 
 stock CreateRoadblock(Object,Float:x,Float:y,Float:z,Float:Angle)
@@ -4465,7 +4051,6 @@ stock HasMetalItem(playerid)
 	if(Inventory_HasItem(playerid, "Portable Radio")) return 1;
 	if(Inventory_HasItem(playerid, "Lighter")) return 1;
 	if(Inventory_HasItem(playerid, "Screwdriver")) return 1;
-	if(Inventory_HasItem(playerid, "Bomb")) return 1;
 
 	return 0;
 }
@@ -6879,9 +6464,6 @@ House_Refresh(houseid)
 		if (IsValidDynamic3DTextLabel(HouseData[houseid][houseText3D]))
 		    DestroyDynamic3DTextLabel(HouseData[houseid][houseText3D]);
 
-		if (IsValidDynamicPickup(HouseData[houseid][housePickup]))
-		    DestroyDynamicPickup(HouseData[houseid][housePickup]);
-
 		//if (IsValidDynamicMapIcon(HouseData[houseid][houseMapIcon]))
 		    //DestroyDynamicMapIcon(HouseData[houseid][houseMapIcon]);
 
@@ -6889,15 +6471,15 @@ House_Refresh(houseid)
 		    string[128];
 
 		if (!HouseData[houseid][houseOwner]) {
-			HouseData[houseid][housePickup] = CreateDynamicPickup(1273, 23, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 			format(string, sizeof(string), "[%s]\n%s", FormatNumber(HouseData[houseid][housePrice]), HouseData[houseid][houseAddress]);
             HouseData[houseid][houseText3D] = CreateDynamic3DTextLabel(string, 0x33AA33FF, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 		}
 		else {
-			HouseData[houseid][housePickup] = CreateDynamicPickup(19522, 23, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 			format(string, sizeof(string), "%s", HouseData[houseid][houseAddress]);
 			HouseData[houseid][houseText3D] = CreateDynamic3DTextLabel(string, COLOR_WHITE, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 		}
+		//HouseData[houseid][housePickup] = CreateDynamicPickup(1273, 23, HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
+		HouseData[houseid][houseCheckpoint] = CreateDynamicCP(HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], 2, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior], -1, 15);
 		//HouseData[houseid][houseMapIcon] = CreateDynamicMapIcon(HouseData[houseid][housePos][0], HouseData[houseid][housePos][1], HouseData[houseid][housePos][2], (HouseData[houseid][houseOwner] != 0) ? (32) : (31), 0, HouseData[houseid][houseExteriorVW], HouseData[houseid][houseExterior]);
 	}
 	return 1;
@@ -7751,59 +7333,62 @@ Billboard_Delete(bizid)
 
 Job_Refresh(jobid)
 {
-	if (jobid != -1 && JobData[jobid][jobExists])
+	if(jobid != -1 && JobData[jobid][jobExists])
 	{
-	    for (new i = 0; i < 3; i ++) {
+	    for(new i = 0; i < 3; i ++) 
+		{
 			if (IsValidDynamic3DTextLabel(JobData[jobid][jobText3D][i]))
+			{
 		    	DestroyDynamic3DTextLabel(JobData[jobid][jobText3D][i]);
-
-			if (IsValidDynamicPickup(JobData[jobid][jobPickups][i]))
-		    	DestroyDynamicPickup(JobData[jobid][jobPickups][i]);
+			}
 		}
 		static
 		    string[90];
 
 		format(string, sizeof(string), "[%s]\n{FFFFFF}Duty Point", Job_GetName(JobData[jobid][jobType]));
 
-		if (JobData[jobid][jobType] == 1) {
+		if(JobData[jobid][jobType] == 1) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Courier]\n{FFFFFF}Type /loadcrate to get crates.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1210, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobCheckpoint][1] = CreateDynamicCP(JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 		}
-		else if (JobData[jobid][jobType] == 5) {
+		else if(JobData[jobid][jobType] == 5) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Mining]\n{FFFFFF}Type /mine to begin mining.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobCheckpoint][1] = CreateDynamicCP(JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 
 			JobData[jobid][jobText3D][2] = CreateDynamic3DTextLabel("[Mining]\n{FFFFFF}Deliver your mining rocks at this spot.", COLOR_DEPARTMENT, JobData[jobid][jobDeliver][0], JobData[jobid][jobDeliver][1], JobData[jobid][jobDeliver][2], 15.0);
-			JobData[jobid][jobPickups][2] = CreateDynamicPickup(1239, 23, JobData[jobid][jobDeliver][0], JobData[jobid][jobDeliver][1], JobData[jobid][jobDeliver][2]);
+			JobData[jobid][jobCheckpoint][2] = CreateDynamicCP(JobData[jobid][jobDeliver][0], JobData[jobid][jobDeliver][1], JobData[jobid][jobDeliver][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 		}
-		else if (JobData[jobid][jobType] == 7) {
+		else if(JobData[jobid][jobType] == 7) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Garbage Dump]\n{FFFFFF}Type /dumpgarbage to dump your trash.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1264, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobCheckpoint][1] = CreateDynamicCP(JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
+
 		}
-		else if (JobData[jobid][jobType] == 8) {
+		else if(JobData[jobid][jobType] == 8) {
 			JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Package Sorting]\n{FFFFFF}Type /sorting to begin sorting packages.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobCheckpoint][1] = CreateDynamicCP(JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 
 			JobData[jobid][jobText3D][2] = CreateDynamic3DTextLabel("[Package Sorting]\n{FFFFFF}Deliver your packages here for sorting.", COLOR_DEPARTMENT, JobData[jobid][jobDeliver][0], JobData[jobid][jobDeliver][1], JobData[jobid][jobDeliver][2], 15.0);
-			JobData[jobid][jobPickups][2] = CreateDynamicPickup(1239, 23, JobData[jobid][jobDeliver][0], JobData[jobid][jobDeliver][1], JobData[jobid][jobDeliver][2]);
+			JobData[jobid][jobCheckpoint][2] = CreateDynamicCP(JobData[jobid][jobDeliver][0], JobData[jobid][jobDeliver][1], JobData[jobid][jobDeliver][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 		}
-        else if (JobData[jobid][jobType] == 9) {
+        else if(JobData[jobid][jobType] == 9) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Weapon Parts]\n{FFFFFF}Type /craftparts to craft a weapon crate.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobCheckpoint][1] = CreateDynamicCP(JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 		}
-		else if (JobData[jobid][jobType] == 10) {
+		else if(JobData[jobid][jobType] == 10) {
 		    JobData[jobid][jobText3D][1] = CreateDynamic3DTextLabel("[Fising Pier]\n{FFFFFF}Type /fishing to begin catching fishes.", COLOR_DEPARTMENT, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
-			JobData[jobid][jobPickups][1] = CreateDynamicPickup(1239, 23, JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt]);
+			JobData[jobid][jobCheckpoint][1] = CreateDynamicCP(JobData[jobid][jobPoint][0], JobData[jobid][jobPoint][1], JobData[jobid][jobPoint][2], 2, JobData[jobid][jobPointWorld], JobData[jobid][jobPointInt], -1, 16);
 		}
+
 		JobData[jobid][jobText3D][0] = CreateDynamic3DTextLabel(string, COLOR_DEPARTMENT, JobData[jobid][jobPos][0], JobData[jobid][jobPos][1], JobData[jobid][jobPos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, JobData[jobid][jobWorld], JobData[jobid][jobInterior]);
-        JobData[jobid][jobPickups][0] = CreateDynamicPickup(1275, 23, JobData[jobid][jobPos][0], JobData[jobid][jobPos][1], JobData[jobid][jobPos][2], JobData[jobid][jobWorld], JobData[jobid][jobInterior]);
+		JobData[jobid][jobCheckpoint][0] = CreateDynamicCP(JobData[jobid][jobPos][0], JobData[jobid][jobPos][1], JobData[jobid][jobPos][2], 2, JobData[jobid][jobWorld], JobData[jobid][jobInterior], -1, 16);
+
 	}
 	return 1;
 }
 
 Job_Delete(jobid)
 {
-	if (jobid != -1 && JobData[jobid][jobExists])
+	if(jobid != -1 && JobData[jobid][jobExists])
 	{
 	    new
 	        string[64];
@@ -7811,12 +7396,14 @@ Job_Delete(jobid)
 		format(string, sizeof(string), "DELETE FROM `jobs` WHERE `jobID` = '%d'", JobData[jobid][jobID]);
 		mysql_tquery(g_iHandle, string);
 
-        for (new i = 0; i < 3; i ++) {
+        for(new i = 0; i < 3; i ++) {
 			if (IsValidDynamic3DTextLabel(JobData[jobid][jobText3D][i]))
 		    	DestroyDynamic3DTextLabel(JobData[jobid][jobText3D][i]);
 
-			if (IsValidDynamicPickup(JobData[jobid][jobPickups][i]))
-		    	DestroyDynamicPickup(JobData[jobid][jobPickups][i]);
+			if (IsValidDynamicCP(JobData[jobid][jobCheckpoint][i]))
+				DestroyDynamicCP(JobData[jobid][jobCheckpoint][i]);
+
+
 		}
 		JobData[jobid][jobExists] = false;
 	    JobData[jobid][jobType] = 0;
@@ -8570,9 +8157,6 @@ House_Delete(houseid)
         if (IsValidDynamic3DTextLabel(HouseData[houseid][houseText3D]))
 		    DestroyDynamic3DTextLabel(HouseData[houseid][houseText3D]);
 
-		if (IsValidDynamicPickup(HouseData[houseid][housePickup]))
-		    DestroyDynamicPickup(HouseData[houseid][housePickup]);
-
 		if (IsValidDynamicMapIcon(HouseData[houseid][houseMapIcon]))
 		    DestroyDynamicMapIcon(HouseData[houseid][houseMapIcon]);
 
@@ -8974,6 +8558,7 @@ Business_Refresh(bizid)
 			}
 			BusinessData[bizid][bizText3D] = CreateDynamic3DTextLabel(string, (BusinessData[bizid][bizLocked]) ? (COLOR_DEPARTMENT) : (COLOR_WHITE), BusinessData[bizid][bizPos][0], BusinessData[bizid][bizPos][1], BusinessData[bizid][bizPos][2], 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, BusinessData[bizid][bizExteriorVW], BusinessData[bizid][bizExterior]);
 		}
+		/*
 		switch (BusinessData[bizid][bizType]) {
 		    case 1: pickup = 1274;
 		    case 2: pickup = 1274;
@@ -8984,6 +8569,7 @@ Business_Refresh(bizid)
 		    case 7: pickup = 1274;
 		    case 8: pickup = 1274;
 		}
+		*/
 		if (BusinessData[bizid][bizType] == 6) {
         	BusinessData[bizid][bizPickup] = CreateDynamicPickup(pickup, 23, BusinessData[bizid][bizPos][0], BusinessData[bizid][bizPos][1], BusinessData[bizid][bizPos][2] + 0.3, BusinessData[bizid][bizExteriorVW], BusinessData[bizid][bizExterior]);
 		}
@@ -12294,39 +11880,6 @@ stock Float:GetPlayerSpeed(playerid)
 	return floatsqroot((velocity[0] * velocity[0]) + (velocity[1] * velocity[1]) + (velocity[2] * velocity[2])) * 100.0;
 }
 
-stock ResetBombInfo(vehicleid)
-{
-	g_Bomb_Vehicles[vehicleid][bv_i_ArmedType] = 0;
-	g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] = 0;
-	g_Bomb_Vehicles[vehicleid][bv_i_BombOwner] = 0;
-	g_Bomb_Vehicles[vehicleid][bv_b_BombActivated] = false;
-	g_Bomb_Vehicles[vehicleid][bv_b_BombDisarmed] = false;
-}
-
-
-stock CarBomb_OnVehicleStart(vehicleid)
-{
-	if(g_Bomb_Vehicles[vehicleid][bv_i_ArmedType] != VEHICLE_BOMB_TYPE_UNARMED && g_Bomb_Vehicles[vehicleid][bv_b_BombActivated] == false)
-	{
-		switch(g_Bomb_Vehicles[vehicleid][bv_i_ArmedType])
-		{
-			case VEHICLE_BOMB_TYPE_IGNITION:
-			{
-				BombActivated(vehicleid);
-				return 1;
-			}
-
-			case VEHICLE_BOMB_TYPE_SPEED:
-			{
-				SetTimerEx("ArmSpeedBomb", g_Bomb_Vehicles[vehicleid][bv_i_ExplosionTimer] * 1000, false, "d", vehicleid);
-				return 1;
-			}
-		}
-	}
-
-	return 1;
-}
-
 stock GetGateByID(sqlid)
 {
 	for (new i = 0; i != MAX_GATES; i ++) if (GateData[i][gateExists] && GateData[i][gateID] == sqlid)
@@ -14832,7 +14385,7 @@ public PlayerCheck()
 		               	    if (id == -1)
 		               	        return SendErrorMessage(i, "You don't have any inventory slots left.");
 
-		                	SendNearbyMessage(i, 30.0, COLOR_PURPLE, "** The microwave beeps, you can smell a burger! (( %s ))", ReturnName(i, 0));
+		                	SendNearbyMessage(i, 30.0, COLOR_PURPLE, "* The microwave beeps, you can smell a burger! (( %s ))", ReturnName(i, 0));
 		                	SendServerMessage(i, "The cooked burger was added to your inventory.");
 		            	}
 			            case 2:
@@ -14842,7 +14395,7 @@ public PlayerCheck()
 			                if (id == -1)
 		               	        return SendErrorMessage(i, "You don't have any inventory slots left.");
 
-		    	            SendNearbyMessage(i, 30.0, COLOR_PURPLE, "** The oven beeps, you can smell pizza! (( %s ))", ReturnName(i, 0));
+		    	            SendNearbyMessage(i, 30.0, COLOR_PURPLE, "* The oven beeps, you can smell pizza! (( %s ))", ReturnName(i, 0));
 		    	            SendServerMessage(i, "The cooked pizza was added to your inventory.");
 		        	    }
 					}
@@ -15203,6 +14756,7 @@ public OnRconCommand(cmd[])
     return 0;
 }
 
+/*
 public OnPlayerPickUpDynamicPickup(playerid, pickupid)
 {
 	if(Dialog_Opened(playerid)) return 0;
@@ -15227,6 +14781,56 @@ public OnPlayerPickUpDynamicPickup(playerid, pickupid)
 		}
 	}
 
+	return 1;
+}
+*/
+
+public OnPlayerEnterDynamicArea(playerid, areaid)
+{
+	for(new i = 0; i != MAX_HOUSES; i ++)
+	{
+		if(IsPlayerInRangeOfPoint(playerid, 16.5, HouseData[i][housePos][0], HouseData[i][housePos][1], HouseData[i][housePos][2]))
+		{
+			TogglePlayerDynamicCP(playerid, HouseData[i][houseCheckpoint], 1);
+		}
+  	}
+
+	for (new i = 0; i < MAX_DYNAMIC_JOBS; i ++)
+	{
+		if(IsPlayerInRangeOfPoint(playerid, 16.5, JobData[i][jobPos][0], JobData[i][jobPos][1], JobData[i][jobPos][2]))
+		{
+			TogglePlayerDynamicCP(playerid, JobData[i][jobCheckpoint], 1);
+		}
+  	}
+
+	for(new i; i < MAX_METAL_DETECTORS; i++)
+	{
+		if(!MetalDetectors[i][detectorExists]) continue;
+		if(areaid == MetalDetectors[i][dynamicArea])
+		{
+			if (HasMetalItem(playerid) && gettime() > PlayerData[playerid][pDetectorTime])
+			{
+				PlayerData[playerid][pDetectorTime] = gettime() + 5;
+
+				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** The metal detector sounds off. (( %s ))", ReturnName(playerid, 0));
+				PlayerPlaySoundEx(playerid, 43000);
+			}
+			break;
+		}
+	}
+
+  	return 1;
+}
+
+public OnPlayerLeaveDynamicArea(playerid, areaid)
+{
+	for(new i = 0; i != MAX_HOUSES; i ++)
+	{
+		if(!IsPlayerInRangeOfPoint(playerid, 16.0, HouseData[i][housePos][0], HouseData[i][housePos][1], HouseData[i][housePos][2]))
+		{
+			TogglePlayerDynamicCP(playerid, HouseData[i][houseCheckpoint], 0);
+		}
+	}
 	return 1;
 }
 
@@ -17128,10 +16732,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			}
 
 		}
-		if((newkeys & KEY_YES) && !(oldkeys & KEY_YES))
-		{
-	 		detonateExplosives(playerid);
-		}
 	}
 	if(PoolStarted && PlayingPool[playerid])
 	{
@@ -17444,7 +17044,6 @@ public CueReset(playerid)
 	return 1;
 }
 
-
 public OnPlayerInteriorChange(playerid, newinteriorid, oldinteriorid)
 {
 	if(PlayingPool[playerid])
@@ -17494,7 +17093,6 @@ public OnPlayerInteriorChange(playerid, newinteriorid, oldinteriorid)
 	return 1;
 }
 
-
 Float:GetPointDistanceToPoint(Float:x1,Float:y1,Float:x2,Float:y2)
 {
 	new Float:x, Float:y;
@@ -17503,14 +17101,12 @@ Float:GetPointDistanceToPoint(Float:x1,Float:y1,Float:x2,Float:y2)
 	return floatsqroot(x*x+y*y);
 }
 
-
 stock GetAngleToXY(Float:X, Float:Y, Float:CurrX, Float:CurrY, &Float:angle)
 {
 	angle = atan2(Y-CurrY, X-CurrX);
 	angle = floatsub(angle, 90.0);
 	if(angle < 0.0) angle = floatadd(angle, 360.0);
 }
-
 
 stock GetXYInFrontOfPos(Float:xx,Float:yy,Float:a, &Float:x2, &Float:y2, Float:distance)
 {
@@ -18051,7 +17647,6 @@ public OnPlayerEnterVehicle(playerid, vehicleid, ispassenger)
 			SetPlayerInterior(playerid, 1);
 		}
 	}
-	CarBomb_OnVehicleStart(vehicleid);
 	return 1;
 }
 
@@ -18765,26 +18360,6 @@ OnPlayerSwapGun(playerid, newgun, oldgun)
 	return 1;
 }
 
-public OnPlayerEnterDynamicArea(playerid, areaid)
-{
-	for(new i; i < MAX_METAL_DETECTORS; i++)
-	{
-		if(!MetalDetectors[i][detectorExists]) continue;
-		if(areaid == MetalDetectors[i][dynamicArea])
-		{
-			if (HasMetalItem(playerid) && gettime() > PlayerData[playerid][pDetectorTime])
-			{
-				PlayerData[playerid][pDetectorTime] = gettime() + 5;
-
-				SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "** The metal detector sounds off. (( %s ))", ReturnName(playerid, 0));
-				PlayerPlaySoundEx(playerid, 43000);
-			}
-			break;
-		}
-	}
-	return 1;
-}
-
 public OnPlayerUpdate(playerid)
 {
 	if (PlayerData[playerid][pKicked])
@@ -19203,7 +18778,6 @@ public OnGameModeInit()
 		SetDynamicObjectPos(PrisonData[prisonCells][i], PrisonCells[i][0], PrisonCells[i][1] + 1.6, PrisonCells[i][2]);
 	}
 
-	flushExplosiveData();
 	DisableInteriorEnterExits();
 	EnableStuntBonusForAll(0);
 
@@ -20366,7 +19940,7 @@ public OnModelSelectionResponse(playerid, extraid, index, modelid, response)
 		SetPlayerArmour(playerid, 150.0);
 		SetPlayerHealth(playerid, 99.0);
 	  	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s gears up with his Undercover equipment.", ReturnName(playerid, 0));
-	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on Undercover Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on Undercover Duty.", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	}
 	if ((response) && (extraid == MODEL_SELECTION_OFFDUTYCLOTHES))
 	{
@@ -23400,7 +22974,7 @@ Dialog:NinerOptions(playerid, response, listitem, inputtext[])
 					if(NinerData[i][ninerID] == cid)
 					{
 						Niner_Clear(playerid, i);
-						SendFactionMessage(factionid, COLOR_RADIOCHAT, "[Dispatch]: %s has cleared a 911 call (CID: %i) **", ReturnName(playerid, 0), cid);
+						SendFactionMessage(factionid, COLOR_RADIOCHAT, "[Dispatch]: %s has cleared a 911 call (CID: %i)", ReturnName(playerid, 0), cid);
 						found = 1;
 						break;
 					}
@@ -23764,7 +23338,7 @@ Dialog:Locker(playerid, response, listitem, inputtext[])
 
 	                    SetFactionColor(playerid);
 	                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has clocked in and is now on duty.", ReturnName(playerid, 0));
-	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now On Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on duty.", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	                }
 	                else
 	                {
@@ -23775,7 +23349,7 @@ Dialog:Locker(playerid, response, listitem, inputtext[])
 	                    SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
 
 	                    SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s has clocked out and is now off duty.", ReturnName(playerid, 0));
-	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now Off Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	                    SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now off duty.", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	                }
 				}
 				case 1:
@@ -27441,7 +27015,7 @@ CMD:clearniner(playerid, params[])
 		if(NinerData[i][ninerID] == cid)
 		{
 			Niner_Clear(playerid, i);
-			SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s has cleared a 911 call (CID: %i) **", ReturnName(playerid, 0), cid);
+			SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s has cleared a 911 call (CID: %i)", ReturnName(playerid, 0), cid);
 			found = 1;
 			break;
 		}
@@ -27809,50 +27383,19 @@ CMD:rules(playerid, params[])
 	return 1;
 }
 
-/*CMD:b(playerid, params[])
-{
-	if (isnull(params))
-	    return SendSyntaxMessage(playerid, "/b [local OOC]");
-
-	if(PlayerData[playerid][pBChatDisabled] == 1)
-		return SendErrorMessage(playerid, "You have /b chat disabled, enable it with /tog bchat.");
-
-	if (strlen(params) > 64)
-	{
-	    if(PlayerData[playerid][pAdminDuty] == 1)
-	    {
-	        SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "{3AB3ED}%s{FFFFFF} [%d]: (( %.64s", ReturnName(playerid, 0), playerid, params);
-	    	SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "...%s ))", params[64]);
-	        return 1;
-		}
-	    SendNearbyBMessage(playerid, 20.0, COLOR_WHITE, "%s [%d]: (( %.64s", ReturnName(playerid, 0), playerid, params);
-	    SendNearbyBMessage(playerid, 20.0, COLOR_WHITE, "...%s ))", params[64]);
-	}
-	else
-	{
-	    if(PlayerData[playerid][pAdminDuty] == 1)
-	    {
-	        SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "{3AB3ED}%s{FFFFFF} [%d]: (( %s ))", ReturnName(playerid, 0), playerid, params);
-			return 1;
-		}
-	    SendNearbyBMessage(playerid, 20.0, COLOR_WHITE, "%s [%d]: (( %s ))", ReturnName(playerid, 0), playerid, params);
-	}
-	return 1;
-}*/
-
 CMD:b(playerid, params[])
 {
     if (isnull(params))
         return SendSyntaxMessage(playerid, "/b [local OOC]");
 
     if(PlayerData[playerid][pBChatDisabled] == 1)
-		return SendErrorMessage(playerid, "You have /b chat disabled, enable it with /tog bchat.");
+		return SendErrorMessage(playerid, "You have /b chat disabled, enable it with /settings.");
 
     if (strlen(params) > 64)
     {
         if(PlayerData[playerid][pAdminDuty] == 1)
         {
-            SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "(( {FF7400}%s {FFFFFF}(%d): %.64s )) ", ReturnName(playerid, 2), playerid, params);
+            SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "(( {FD0000}%s {FFFFFF}(%d): %.64s )) ", ReturnName(playerid, 2), playerid, params);
             SendNearbyMessage(playerid, 20.0, COLOR_WHITE, "...%s ))", params[64]);
             return 1;
         }
@@ -28352,7 +27895,7 @@ CMD:help(playerid, params[])
 	strcat(string, "{FF6347}[Help]: {FFFFFF}/inventory, /switch, /search, /searchbp, /approve, /faq, /sell, /paint, /drink, /bank, /cook, /vest, /ammo, /unequip.\n");
 	strcat(string, "{FF6347}[Help]: {FFFFFF}/usekit, /id, /drop, /flist, /crates, /fill, /pay, /gps, /open, /usedrug, /breakcuffs, /backpack, /invoices, /tickets..\n");
 	strcat(string, "{FF6347}[Help]: {FFFFFF}/boombox, /disablecp, /shakehand, /showlicenses, /frisk, /toghud, /passwep, /setradio, /picklock, /resetvw.\n");
-	strcat(string, "{FF6347}[Help]: {FFFFFF}/buyfstyle, /admins, /bomb, /plantbomb, /detonate, /mywarnings, /holster, /unholster\n");
+	strcat(string, "{FF6347}[Help]: {FFFFFF}/buyfstyle, /admins, /mywarnings, /holster, /unholster\n");
 	strcat(string, "{FF6347}[Help]: {FFFFFF}/myclothes, /changeclothes, /buyclothes, /myaccent, /tabbed.\n");
 	strcat(string, "{FF6347}[Help]: {FFFFFF}/ooc, /b, /w, /s, /f, /l, /pilotm, /lcc (local chat clear).\n");
 	strcat(string, "{FF6347}[Help]: {FFFFFF}/phone, /call, /pickup, /hangup, /text.\n");
@@ -28410,7 +27953,7 @@ CMD:factionhelp(playerid, params[])
 		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/ticket, /undercover, /fingerprint, /impound, /revokeweplic, /grantweplic, /vbreach, /searchtrunk");
 		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/take, /kickdoor, /siren, /traffic /beanbag, /callsign, /taclight, /revokelicense, /trace.");
 		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/checkvehicles, /checkproperties, /equip, /spike, /crb, /rallrb, /rrb, /backup, /cancelbackup");
-		SendClientMessage(playerid, COLOR_LIGHTRED, "[Law Enforcement]: {FFFFFF}/bomb, /defuse, /spawndrone, /despawndrone, /setswat, /swat");
+		SendClientMessage(playerid, COLOR_LIGHTRED, "[SWAT]: {FFFFFF}/spawndrone, /despawndrone, /setswat, /swat");
 	}
 	else if (GetFactionType(playerid) == FACTION_NEWS) {
  		SendClientMessage(playerid, COLOR_LIGHTRED, "[News]:{FFFFFF} /radio, /callsign, /broadcast, /bc, /inviteguest, /removeguest.");
@@ -28427,7 +27970,7 @@ CMD:factionhelp(playerid, params[])
  		SendClientMessage(playerid, COLOR_LIGHTRED, "[Security]:{FFFFFF} /cuff, /uncuff, /crb, /rrb, /rallrb, /invoice, /taser, /callsign, /traffic.");
 	}
 	else if (GetFactionType(playerid) == FACTION_GANG_DRUGS || GetFactionType(playerid) == FACTION_GANG_GUNS) {
- 		SendClientMessage(playerid, COLOR_LIGHTRED, "[IIlegal Faction]:{FFFFFF} /graffiti, /blackmarket, /bomb, /plantbomb, /detonate.");
+ 		SendClientMessage(playerid, COLOR_LIGHTRED, "[IIlegal Faction]:{FFFFFF} /graffiti, /blackmarket.");
 	}
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Faction]: {FFFFFF}/factionmembers, /f, /factionleave, /locker.");
 	SendClientMessage(playerid, COLOR_LIGHTRED, "[Leadership]: {FFFFFF}/gov, /factionalert, /managefaction, /factioname, /factrunk, /factionrc.");
@@ -28459,15 +28002,15 @@ CMD:jobhelp(playerid, params[])
 
 CMD:animhelp(playerid, params[])
 {
-		new string [2048];
-        strcat(string, "{FF6347}[Animation]:{FFFFFF} /dance, /handsup, /bat, /slap, /bar, /wash, /lay, /workout, /blowjob, /bomb.\n");
-        strcat(string, "{FF6347}[Animation]:{FFFFFF} /carry, /crack, /sleep, /jump, /deal, /dancing, /eating, /puke, /gsign, /chat.\n");
-        strcat(string, "{FF6347}[Animation]:{FFFFFF} /goggles, /spray, /throw, /swipe, /office, /kiss, /knife, /cpr, /scratch, /point.\n");
-        strcat(string, "{FF6347}[Animation]:{FFFFFF} /cheer, /wave, /strip, /smoke, /reload, /taichi, /wank, /cower, /skate, /drunk.\n");
-        strcat(string, "{FF6347}[Animation]:{FFFFFF} /cry, /tired, /sit, /crossarms, /fucku, /walk, /piss, /lean, /relax, /fall\n");
-        strcat(string, "{FF6347}[Animation]:{FFFFFF} /smoke, /what, /injured, /stopanim.\n");
-        ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Animations", string, "Accept", "");
-        return 1;
+	new string [2048];
+	strcat(string, "{FF6347}[Animation]:{FFFFFF} /dance, /handsup, /bat, /slap, /bar, /wash, /lay, /workout, /blowjob, /bombanim.\n");
+	strcat(string, "{FF6347}[Animation]:{FFFFFF} /carry, /crack, /sleep, /jump, /deal, /dancing, /eating, /puke, /gsign, /chat.\n");
+	strcat(string, "{FF6347}[Animation]:{FFFFFF} /goggles, /spray, /throw, /swipe, /office, /kiss, /knife, /cpr, /scratch, /point.\n");
+	strcat(string, "{FF6347}[Animation]:{FFFFFF} /cheer, /wave, /strip, /smoke, /reload, /taichi, /wank, /cower, /skate, /drunk.\n");
+	strcat(string, "{FF6347}[Animation]:{FFFFFF} /cry, /tired, /sit, /crossarms, /fucku, /walk, /piss, /lean, /relax, /fall\n");
+	strcat(string, "{FF6347}[Animation]:{FFFFFF} /smoke, /what, /injured, /stopanim.\n");
+	ShowPlayerDialog(playerid, 998, DIALOG_STYLE_MSGBOX, "Animations", string, "Accept", "");
+	return 1;
 }
 
 CMD:injured(playerid, params[])
@@ -31707,31 +31250,6 @@ CMD:toggold(playerid, params[])
 	return 1;
 }
 
-/*CMD:dooc(playerid, params[])
-{
-	if (PlayerData[playerid][pDonator] < 1)
-	    return SendClientMessage(playerid, COLOR_GREY, DonatorOnly);
-
-    if(PlayerData[playerid][pDisableDonator] == 0)
-    {
-		if (isnull(params))
-		    return SendSyntaxMessage(playerid, "/dooc [message]");
-	    foreach (new i : Player)
-	    {
-			if (strlen(params) > 64)
-			{
-			    SendDonatorAlert(COLOR_DONATORCHAT, "* %s %s: %.64s", DonatorRankName(i), ReturnName(playerid, 0), params);
-			    SendDonatorAlert(COLOR_DONATORCHAT, "...%s **", params[64]);
-			}
-			else
-			{
-			    SendAdminAlert(COLOR_DONATORCHAT, "* %s %s: %s **", DonatorRankName(i), ReturnName(playerid, 0), params);
-			}
-		}
-	}
-	return 1;
-}*/
-
 CMD:dooc(playerid, params[])
 {
 	if (PlayerData[playerid][pDonator] < 1)
@@ -31782,430 +31300,9 @@ CMD:swat(playerid, params[])
 		SetPlayerArmour(playerid, 200.0);
 		SetPlayerHealth(playerid, 99.0);
 	  	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s gears up with his SWAT equipment.", ReturnName(playerid, 0));
-	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on SWAT Duty.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+	   	SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now on SWAT Duty.", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	}
 	else return SendErrorMessage(playerid, "You are not authorized to go on S.W.A.T duty.");
-	return 1;
-}
-
-CMD:bomb(playerid, params[])
-{
-	new
-		idx,
-		szParameters[2][128 - 6];
-
-	szParameters[0] = strtok(params, idx);
-
-	if(isnull(szParameters[0]))
-	{
-		SendClientMessage(playerid, COLOR_GREY, "USAGE: /bomb [Parameter]");
-		SendClientMessage(playerid, COLOR_GREY, "Available parameters: {E6E6E6}put{AFAFAF}, {E6E6E6}activate{AFAFAF}");
-
-        if(PlayerData[playerid][pSwatMember])
-		{
-			SendClientMessage(playerid, COLOR_FACTIONCHAT, "[SWAT]: {E6E6E6}check{AFAFAF}, {E6E6E6}disarm{AFAFAF}");
-		}
-
-		return 1;
-	}
-
-	szParameters[1] = strtok(params, idx);
-
-	if(!strcmp(szParameters[0], "put", true, 4))
-	{
-		new
-			BombTimerID = GetPVarInt(playerid, "PuttingBomb"),
-			szSetting[20],
-			iTimer;
-
-		if(BombTimerID)
-		{
-			KillTimer(BombTimerID);
-			DeletePVar(playerid, "PuttingBomb");
-			GameTextForPlayer(playerid, "~r~Stopped arming bomb", 2000, 3);
-			TogglePlayerControllable(playerid, 1);
-			return 1;
-		}
-
-		if (!Inventory_HasItem(playerid, "Bomb"))
-    		return SendErrorMessage(playerid, "You dont have a Bomb. Visit the blackmaret and buy one or contact an illegal member.");
-
-		szSetting = strtok(params, idx);
-		iTimer = strval(strtok(params, idx));
-
-		if(isnull(szParameters[1]))
-		{
-			SendClientMessage(playerid, COLOR_GREY, "USAGE: /bomb put [{E6E6E6}Vehicle ID{AFAFAF}] [{E6E6E6}Setting{AFAFAF}] [{E6E6E6}Timer (Seconds){AFAFAF}]");
-			SendClientMessage(playerid, COLOR_WHITE, "Available settings: {E6E6E6}Ignition, timer, speed, remote"),
-			SendClientMessage(playerid, COLOR_GREY, "NOTE: Use \"{E6E6E6}/bomb put help{AFAFAF}\" for explinations of use.");
-			return 1;
-		}
-
-		if(!strcmp(szParameters[1], "help", true, 5))
-		{
-			SendClientMessage(playerid, COLOR_WHITE, "[ BOMB PUT MANUAL ]");
-			SendClientMessage(playerid, COLOR_WHITE, "Setting 1: IGNITION {AAAAAA}- Activates the bomb timer after the {E6E6E6}vehicle's ignition{AAAAAA} is activated.");
-			SendClientMessage(playerid, COLOR_WHITE, "Setting 2: TIMER {AAAAAA}- {E6E6E6}Immediately{AAAAAA} activates the bomb timer.");
-			SendClientMessage(playerid, COLOR_WHITE, "Setting 3: SPEED {AAAAAA}- The bomb will explode as soon as the {E6E6E6}vehicle speed{AAAAAA}");
-			SendClientMessage(playerid, COLOR_WHITE, "drops under {E6E6E6}40{AAAAAA} km/h. It is activated {E6E6E6}as soon as the vehicle is started{AAAAAA}.");
-			SendClientMessage(playerid, COLOR_WHITE, "Setting 4: REMOTE {AAAAAA}- Bomb is activated with \"{E6E6E6}/bomb activate{AAAAAA}\". Note that the {E6E6E6}remote range is limited{AAAAAA}.");
-			SendClientMessage(playerid, COLOR_WHITE, "The timer: {AAAAAA}- Decides how long it takes for the bomb to {E6E6E6}detonate{AAAAAA} from the moment it is activated.");
-			SendClientMessage(playerid, COLOR_WHITE, "You can get the {E6E6E6}ID{AAAAAA} of the vehicle by using the \"{E6E6E6}/dl{AAAAAA}\" command.");
-			SendClientMessage(playerid, COLOR_WHITE, "[ END OF BOMB PUT MANUAL ]");
-			return 1;
-		}
-
-		if( !GetVehicleModel( strval( szParameters[1] ) ) ) // The car isn't spawned
-		{
-			SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid vehicle ID.");
-			SendClientMessage(playerid, COLOR_GREY, "TIP: You can use \"{E6E6E6}/dl{AFAFAF}\" to see the IDs of nearby vehicles.");
-			return 1;
-		}
-
-		if(IsPlayerInAnyVehicle(playerid))
-		{
-			SendClientMessage(playerid, COLOR_GREY, "ERROR: You need to stand close to the vehicle, not in it.");
-			return 1;
-		}
-
-		new
-					iVehicleID = strval(szParameters[1]),
-			Float: 	f_Pos[3];
-
-		GetVehiclePos(iVehicleID, f_Pos[0], f_Pos[1], f_Pos[2]);
-
-		if(!IsPlayerInRangeOfPoint(playerid, BOMB_USE_DISTANCE, f_Pos[0], f_Pos[1], f_Pos[2]))
-		{
-			SendClientMessage(playerid, COLOR_GREY, "ERROR: You are not close enough to this vehicle.");
-			return 1;
-		}
-
-		new
-			iSetting;
-
-		if(!strcmp(szSetting, "ignition", true, 9))
-		{
-			if(iTimer < 1 || iTimer > 60)
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid timer input. Must be between {E6E6E6}1{AFAFAF} and {E6E6E6}60{AFAFAF} seconds.");
-				return 1;
-			}
-			iSetting = VEHICLE_BOMB_TYPE_IGNITION;
-			Inventory_Remove(playerid, "Bomb");
-		}
-
-		else if(!strcmp(szSetting, "timer", true, 6))
-		{
-			if(iTimer < 10 || iTimer > 120)
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid timer input. Must be between {E6E6E6}10{AFAFAF} and {E6E6E6}120{AFAFAF} seconds.");
-				return 1;
-			}
-			iSetting = VEHICLE_BOMB_TYPE_TIMER;
-			Inventory_Remove(playerid, "Bomb");
-		}
-
-		else if(!strcmp(szSetting, "speed", true, 6))
-		{
-			if(iTimer < 15 || iTimer > 60)
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid timer input. Must be between {E6E6E6}15{AFAFAF} and {E6E6E6}60{AFAFAF} seconds.");
-				return 1;
-			}
-			iSetting = VEHICLE_BOMB_TYPE_SPEED;
-			Inventory_Remove(playerid, "Bomb");
-		}
-
-		else if(!strcmp(szSetting, "remote", true, 6))
-		{
-			if(iTimer < 1 || iTimer > 60)
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid timer input. Must be between {E6E6E6}1{AFAFAF} and {E6E6E6}60{AFAFAF} seconds.");
-				return 1;
-			}
-			iSetting = VEHICLE_BOMB_TYPE_REMOTE;
-			Inventory_Remove(playerid, "Bomb");
-		}
-
-		else
-		{
-			SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid setting. Please refer to manual: \"{E6E6E6}/bomb put help{AFAFAF}\".");
-			return 1;
-		}
-
-		ResetBombInfo(iVehicleID);
-
-		ApplyAnimation(playerid, "BOMBER", "BOM_Plant_Loop", 2.0, 0, 0, 0, 0, BOMB_ARMTIME * 1100, 0);
-
-		SetPVarInt(playerid, "PuttingBomb", SetTimerEx("PlayerPutBombInVehicle", 0, 0, "ddddd", BOMB_ARMTIME, playerid, iVehicleID, iSetting, iTimer));
-
-		return 1;
-
-	}
-
-	if(!strcmp(szParameters[0], "activate", true, 4))
-	{
-		new
-			Float: 	f_vPos[3],
-					iHasAnyRemoteBombs;
-
-		for___loop(new i; i < MAX_VEHICLES; i++)
-		{
-			if(g_Bomb_Vehicles[i][bv_i_ArmedType] == VEHICLE_BOMB_TYPE_REMOTE && g_Bomb_Vehicles[i][bv_i_BombOwner] == playerid)
-			{
-				iHasAnyRemoteBombs = 1;
-				GetVehiclePos(i, f_vPos[0], f_vPos[1], f_vPos[2]);
-				if(IsPlayerInRangeOfPoint(playerid, 100.0, f_vPos[0], f_vPos[1], f_vPos[2]))
-				{
-					g_Bomb_Vehicles[i][bv_i_BombOwner] = INVALID_PLAYER_ID;
-					BombActivated(i);
-				}
-			}
-		}
-
-		if(!iHasAnyRemoteBombs)
-		{
-			SendClientMessage(playerid, COLOR_GREY, "ERROR: You haven't planted any bombs.");
-			return 1;
-		}
-
-		new
-			Float:	f_Pos[3];
-
-		GetPlayerPos(playerid, f_Pos[0], f_Pos[1], f_Pos[2]);
-
-		PlayerPlaySound(playerid, 6400, f_Pos[0], f_Pos[1], f_Pos[2]);
-
-		SendClientMessage(playerid, COLOR_ORANGE, "You pressed the trigger on your remote to active your bomb(s).");
-		SendClientMessage(playerid, COLOR_GREY, "NOTE: The distance for the remote is limited.");
-
-		return 1;
-	}
-
-	if(PlayerData[playerid][pSwatMember])
-	{
-		if(!strcmp(szParameters[0], "check", true, 4))
-		{
-			new
-				BombCheckingTimerID = GetPVarInt(playerid, "CheckingForBombs");
-
-			if(BombCheckingTimerID)
-			{
-				KillTimer(BombCheckingTimerID);
-				DeletePVar(playerid, "CheckingForBombs");
-				GameTextForPlayer(playerid, "~r~Stopped looking for bombs", 2000, 3);
-				return 1;
-			}
-
-			if(GetPVarInt(playerid, "DisarmingBomb"))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "You are busy disarming the bomb.");
-				return 1;
-			}
-
-			if(isnull(szParameters[1]))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "USAGE: /bomb check [Vehicle ID]");
-				return 1;
-			}
-
-			new
-				iVehicleID = strval(szParameters[1]);
-
-			if(!GetVehicleModel(iVehicleID))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid vehicle ID.");
-				SendClientMessage(playerid, COLOR_GREY, "TIP: You can use \"{E6E6E6}/dl{AFAFAF}\" to see the IDs of nearby vehicles.");
-				return 1;
-			}
-
-			if(IsPlayerInAnyVehicle(playerid))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: You need to stand close to the vehicle, not in it.");
-				return 1;
-			}
-
-			new
-				Float: f_vPos[3];
-
-			GetVehiclePos(iVehicleID, f_vPos[0], f_vPos[1], f_vPos[2]);
-
-			if(!IsPlayerInRangeOfPoint(playerid, BOMB_USE_DISTANCE, f_vPos[0], f_vPos[1], f_vPos[2]))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "You are not close enough to the vehicle.");
-				return 1;
-			}
-
-			GameTextForPlayer(playerid, "~g~Checking for bombs... ~n~ ~y~Type ~r~/bomb check~y~ again to stop.", BOMB_CHECKTIME * 1100, 3);
-
-			ApplyAnimation(playerid, "BOMBER", "BOM_Plant_Loop", 2.0, 0, 0, 0, 0, BOMB_CHECKTIME * 1100, 0);
-
-			SetPVarInt(playerid, "CheckingForBombs", SetTimerEx("CheckForBombs", BOMB_CHECKTIME * 1000, 0, "dd", playerid, iVehicleID));
-
-			return 1;
-		}
-
-		if(!strcmp(szParameters[0], "disarm", true, 4))
-		{
-			new
-				DisarmingBombTimerID = GetPVarInt(playerid, "DisarmingBomb");
-
-			if(DisarmingBombTimerID)
-			{
-				KillTimer(DisarmingBombTimerID);
-				DeletePVar(playerid, "DisarmingBomb");
-				GameTextForPlayer(playerid, "~r~Stopped disarming the bomb", 2000, 3);
-				return 1;
-			}
-
-			if(GetPVarInt(playerid, "CheckingForBombs"))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "You are busy checking for bombs.");
-				return 1;
-			}
-
-			if(isnull(szParameters[1]))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "USAGE: /bomb disarm [Vehicle ID]");
-				SendClientMessage(playerid, COLOR_GREY, "TIP: You can use \"{E6E6E6}/dl{AFAFAF}\" to see the IDs of nearby vehicles.");
-				return 1;
-			}
-
-			new
-				iVehicleID = strval(szParameters[1]);
-
-			if(!GetVehicleModel(iVehicleID))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid vehicle ID.");
-				SendClientMessage(playerid, COLOR_GREY, "TIP: You can use \"{E6E6E6}/dl{AFAFAF}\" to see the IDs of nearby vehicles.");
-				return 1;
-			}
-
-			if(IsPlayerInAnyVehicle(playerid))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: You need to stand close to the vehicle, not in it.");
-				return 1;
-			}
-
-			new
-				Float: f_vPos[3];
-
-			GetVehiclePos(iVehicleID, f_vPos[0], f_vPos[1], f_vPos[2]);
-
-			if(!IsPlayerInRangeOfPoint(playerid, BOMB_USE_DISTANCE, f_vPos[0], f_vPos[1], f_vPos[2]))
-			{
-				SendClientMessage(playerid, COLOR_GREY, "You are not close enough to the vehicle.");
-				return 1;
-			}
-
-			if(GetPVarInt(playerid, "CheckedCarForBombs") != iVehicleID)
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: You haven't checked this car for bombs yet, you need to see where it is first.");
-				return 1;
-			}
-
-			if(GetPVarInt(playerid, "FoundBombInCar") != iVehicleID)
-			{
-				SendClientMessage(playerid, COLOR_GREY, "ERROR: You haven't found any bombs on this vehicle.");
-				return 1;
-			}
-
-			GameTextForPlayer(playerid, "~g~Disarming bomb...~n~ ~y~Type ~r~/bomb disarm~y~ again to stop.", BOMB_DISARMTIME * 1000, 3);
-
-			ApplyAnimation(playerid, "BOMBER", "BOM_Plant_Loop", 2.0, 0, 0, 0, 0, BOMB_DISARMTIME * 1100, 0);
-
-			SetPVarInt(playerid, "DisarmingBomb", SetTimerEx("DisarmBomb", BOMB_DISARMTIME * 1000, 0, "dd", playerid, iVehicleID));
-
-			return 1;
-		}
-	}
-
-	SendClientMessage(playerid, COLOR_GREY, "ERROR: Invalid parameter. For a full list of available parameters, type \"/bomb\".");
-	return 1;
-}
-
-CMD:plantbomb(playerid, params[])
-{
-	if (!Inventory_HasItem(playerid, "Bomb"))
-    		return SendErrorMessage(playerid, "You dont have a Bomb. Visit the blackmaret and buy one or contact an illegal member.");
-
-	if(checkPlayerExplosives(playerid) < MAX_EXPLOSIVES_PER_PLAYER) // can the player use more C4 or have they reached the limit defined above?
-	{
-		new slotToUse 		= findExplosiveSlot();
-		new individualSlot 	= checkPlayerExplosives(playerid);
-		new labelText[128];
-		new pName[MAX_PLAYER_NAME];
-
-		GetPlayerName(playerid, pName, sizeof(pName));
-
-		format(labelText, sizeof(labelText), "Planted C4.\nID: %i", individualSlot);
-
-		explosiveData[slotToUse][explosiveOwner] = playerid;
-		explosiveData[slotToUse][explosiveSlot] = individualSlot;
-		GetPlayerPos(playerid, explosiveData[slotToUse][explosivePosition][0], explosiveData[slotToUse][explosivePosition][1], explosiveData[slotToUse][explosivePosition][2]);
-		explosiveData[slotToUse][explosiveObject] = CreateDynamicObject(1654, explosiveData[slotToUse][explosivePosition][0], explosiveData[slotToUse][explosivePosition][1], (explosiveData[slotToUse][explosivePosition][2] - 0.6), 0, 0.00000, 0);
-		explosiveData[slotToUse][explosiveLabel] = Create3DTextLabel(labelText, COLOR_YELLOW, explosiveData[slotToUse][explosivePosition][0], explosiveData[slotToUse][explosivePosition][1], (explosiveData[slotToUse][explosivePosition][2] - 0.5), 30, GetPlayerVirtualWorld(playerid), 0);
-
-		SendClientMessage(playerid, COLOR_RED, "Your C4 has been planted! To detonate, use /detonate [slot]");
-		Inventory_Remove(playerid, "Bomb");
-	}
-	else
-	{
-		SendClientMessage(playerid, COLOR_GREY, "You cannot place anymore explosives, try detonating one.");
-	}
-
-	return 1;
-}
-
-CMD:detonate(playerid, params[])
-{
-	new explosivesID, count = 0;
-	if(!sscanf(params, "i", explosivesID))
-	{
-		for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-		{
-			if(explosiveData[i][explosiveOwner] == playerid)
-			{
-				if(explosiveData[i][explosiveSlot] == explosivesID)
-				{
-					detonateExplosive(playerid, explosivesID);
-					count++;
-				}
-			}
-		}
-	}
-	else
-	{
-		return SendSyntaxMessage(playerid, "/detonate [slot]");
-	}
-
-	return 1;
-}
-
-CMD:defuse(playerid, params[])
-{
-    if (PlayerData[playerid][pSwatMember])
-    {
-		new bool:anyLocated = false;
-		for___loop(new i = 0; i < MAX_EXPLOSIVES; i++)
-		{
-			if(IsPlayerInRangeOfPoint(playerid, 5.0, explosiveData[i][explosivePosition][0], explosiveData[i][explosivePosition][1], explosiveData[i][explosivePosition][2]))
-			{
-				SendClientMessage(playerid, COLOR_WHITE, "You are now trying to defuse the C4. Please be patient and watch the wires.");
-				ApplyAnimation(playerid, "BOMBER", "BOM_PLANT_LOOP", 4.0, 1, 0, 0, 0, -1);
-
-				SetTimerEx("DefuseC4", 3000, false, "ii", playerid, i);
-				anyLocated = true;
-
-				break;
-			}
-		}
-
-		if(!anyLocated)
-		{
-			return SendClientMessage(playerid, COLOR_ORANGE, "You are not in the proximity of any C4.");
-		}
-	}
 	return 1;
 }
 
@@ -32602,7 +31699,7 @@ CMD:spawndrone(playerid, params[])
 	    SetEngineStatus(vehicleid, true);
 		CoreVehicles[vehicleid][vehTemporary] = true;
 		SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s uses the remote to start the engine of the SWAT drone.", ReturnName(playerid, 0));
-		SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now controlling a SWAT drone.**", Faction_GetRank(playerid), ReturnName(playerid, 0));
+		SendFactionMessage(factionid, COLOR_FACTIONCHAT, "[Dispatch]: %s %s is now controlling a SWAT drone.", Faction_GetRank(playerid), ReturnName(playerid, 0));
 	}
 	else return SendErrorMessage(playerid, "You are not authorized to spawn a drone due to the fact you are not part of the SWAT team.");
 	return 1;
@@ -33995,7 +33092,7 @@ CMD:editbiz(playerid, params[])
 	if (sscanf(params, "ds[24]S()[128]", id, type, string))
  	{
 	 	SendSyntaxMessage(playerid, "/editbiz [id] [name]");
-	    SendClientMessage(playerid, COLOR_ORANGE, "[NAMES]:{FFFFFF} location, interior, deliver, name, price, stock, type, pickup, cars, spawn");
+	    SendClientMessage(playerid, COLOR_ORANGE, "[NAMES]:{FFFFFF} location, interior, deliver, name, price, stock, type, cars, spawn");
 		return 1;
 	}
 	if ((id < 0 || id >= MAX_BUSINESSES) || !BusinessData[id][bizExists])
@@ -34091,6 +33188,7 @@ CMD:editbiz(playerid, params[])
 
 		SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s has adjusted the name of business ID: %d to \"%s\".", ReturnName(playerid, 0), id, name);
 	}
+	/*
 	else if (!strcmp(type, "pickup", true))
 	{
 	    new pickupid;
@@ -34105,6 +33203,7 @@ CMD:editbiz(playerid, params[])
 
 		SendAdminAlert(COLOR_LIGHTRED, "[Admin]: {FFFFFF}%s has adjusted the pickup of business ID: %d to \"%d\".", ReturnName(playerid, 0), id, pickupid);
 	}
+	*/
 	else if (!strcmp(type, "type", true))
 	{
 	    new typeint;
@@ -34113,7 +33212,7 @@ CMD:editbiz(playerid, params[])
 	    {
 	        SendSyntaxMessage(playerid, "/editbiz [id] [type] [business type]");
 			SendClientMessage(playerid, COLOR_YELLOW, "[TYPES]:{FFFFFF} 1: Retail | 2: Weapons | 3: Clothes | 4: Fast Food | 5: Dealership");
-			SendClientMessage(playerid, COLOR_YELLOW, "[TYPES]:{FFFFFF} 6: Gas Station | 7: Furniture | 8: Pawn Shop | 9: Post Office 10: Bait Shop");
+			SendClientMessage(playerid, COLOR_YELLOW, "[TYPES]:{FFFFFF} 6: Gas Station | 7: Furniture | 8: Pawn Shop | 9: Post Office | 10: Bait Shop");
 			return 1;
 		}
 		if (typeint < 1 || typeint > 10)
@@ -36544,7 +35643,7 @@ CMD:blackmarket(playerid, params[])
 	{
 		if(IsPlayerInRangeOfPoint(playerid, 5.0, 263.3232,2895.9087,10.5391)) // abandoned airport dock
 		{
-			ShowPlayerDialog(playerid, 12250, DIALOG_STYLE_LIST, "Black Market", "Magazine ($1000)\nKnife($20000)\nAmmo Cartridge($4000)\nKevlar Vest ($5000)\nHeavy Kevlar Vest ($14000)\nBomb ($60000)", "Create", "Cancel");
+			ShowPlayerDialog(playerid, 12250, DIALOG_STYLE_LIST, "Black Market", "Magazine ($1000)\nKnife($20000)\nAmmo Cartridge($4000)\nKevlar Vest ($5000)\nHeavy Kevlar Vest ($14000)", "Create", "Cancel");
 		}
 		else return SendErrorMessage(playerid, "You are not near Black Market.");
 	}
@@ -40149,21 +39248,21 @@ CMD:r(playerid, params[])
 	if(PlayerData[playerid][pChannel] == 914 && GetFactionType(playerid) != FACTION_GOV) return SendErrorMessage(playerid, "You cannot use a GOV radio channel.");
 	if (strlen(params) > 64)
 	{
-		format(string, sizeof(string), "** [CH: %d] %s: %.64s",PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
+		format(string, sizeof(string), "*** [CH: %d] %s: %.64s",PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
 		SendRadioMessage(PlayerData[playerid][pChannel], COLOR_RADIO, string);
-		format(string, sizeof(string), "...%s **",params[64]);
+		format(string, sizeof(string), "...%s",params[64]);
 		SendRadioMessage(PlayerData[playerid][pChannel], COLOR_RADIO, string);
 		SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "** (Radio) %s: %.64s", ReturnName(playerid, 2), params);
-	    SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "...%s **", params[64]);
+	    SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "...%s", params[64]);
 		new bubstring[128];
 		format(bubstring, sizeof(bubstring), "* %s speaks through their radio.", ReturnName(playerid, 2));
 		SetPlayerChatBubble(playerid, bubstring, COLOR_PURPLE, 30.0, 3000);
 
 	}
 	else {
-		format(string, sizeof(string),"** [CH: %d] %s: %s **", PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
+		format(string, sizeof(string),"*** [CH: %d] %s: %s", PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
 		SendRadioMessage(PlayerData[playerid][pChannel], COLOR_RADIO, string);
-		SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "** (Radio) %s: %.64s", ReturnName(playerid, 2), params);
+		SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "* (Radio) %s: %.64s", ReturnName(playerid, 2), params);
 		new bubstring[128];
 		format(bubstring, sizeof(bubstring), "* %s speaks through their radio.", ReturnName(playerid, 2));
 		SetPlayerChatBubble(playerid, bubstring, COLOR_PURPLE, 30.0, 3000);
@@ -40190,21 +39289,21 @@ CMD:rlow(playerid, params[])
 	if(PlayerData[playerid][pChannel] == 914 && GetFactionType(playerid) != FACTION_GOV) return SendErrorMessage(playerid, "You cannot use a GOV radio channel.");
 	if (strlen(params) > 64)
 	{
-		format(string, sizeof(string), "** [CH: %d] %s: %.64s",PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
+		format(string, sizeof(string), "*** [CH: %d] %s: %.64s",PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
 		SendRadioMessage(PlayerData[playerid][pChannel], COLOR_RADIO, string);
-		format(string, sizeof(string), "...%s **",params[64]);
+		format(string, sizeof(string), "...%s",params[64]);
 		SendRadioMessage(PlayerData[playerid][pChannel], COLOR_RADIO, string);
 		SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "** (Radio) %s: %.64s", ReturnName(playerid, 2), params);
-	    SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "...%s **", params[64]);
+	    SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "...%s", params[64]);
 		new bubstring[128];
 		format(bubstring, sizeof(bubstring), "* %s speaks through their radio.", ReturnName(playerid, 2));
 		SetPlayerChatBubble(playerid, bubstring, COLOR_PURPLE, 30.0, 3000);
 
 	}
 	else {
-		format(string, sizeof(string),"** [CH: %d] %s: %s **", PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
+		format(string, sizeof(string),"*** [CH: %d] %s: %s", PlayerData[playerid][pChannel],ReturnName(playerid, 2), params);
 		SendRadioMessage(PlayerData[playerid][pChannel], COLOR_RADIO, string);
-		SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "** (Radio) %s: %.64s", ReturnName(playerid, 2), params);
+		SendNearbyMessage(playerid, 5.0, COLOR_FADE1, "* (Radio) %s: %.64s", ReturnName(playerid, 2), params);
 		new bubstring[128];
 		format(bubstring, sizeof(bubstring), "* %s speaks through their radio.", ReturnName(playerid, 2));
 		SetPlayerChatBubble(playerid, bubstring, COLOR_PURPLE, 30.0, 3000);
@@ -42977,7 +42076,7 @@ CMD:bshipment(playerid, params[])
 	    Business_Save(id);
 
 	    SendServerMessage(playerid, "Your business is no longer requesting a shipment.");
-	    SendJobMessage(1, COLOR_YELLOW, "* %s is no longer requesting a shipment for %s. **", ReturnName(playerid, 0), BusinessData[id][bizName]);
+	    SendJobMessage(1, COLOR_YELLOW, "* %s is no longer requesting a shipment for %s.", ReturnName(playerid, 0), BusinessData[id][bizName]);
 	}
 	else
 	{
@@ -42988,7 +42087,7 @@ CMD:bshipment(playerid, params[])
 	    Business_Save(id);
 
 	    SendServerMessage(playerid, "Your have requested a shipment for your business.");
-		SendJobMessage(1, COLOR_YELLOW, "* %s is requesting a shipment for %s (/shipments to accept). **", ReturnName(playerid, 0), BusinessData[id][bizName]);
+		SendJobMessage(1, COLOR_YELLOW, "* %s is requesting a shipment for %s (/shipments to accept).", ReturnName(playerid, 0), BusinessData[id][bizName]);
 	}
 	return 1;
 }
@@ -43829,15 +42928,15 @@ CMD:whisper(playerid, params[])
 		return SendErrorMessage(playerid, "You can't whisper yourself.");
 
     if (strlen(text) > 64) {
-	    SendClientMessageEx(userid, COLOR_YELLOW, "** Whisper from %s (%d): %.64s", ReturnName(playerid, 0), playerid, text);
-	    SendClientMessageEx(userid, COLOR_YELLOW, "...%s **", text[64]);
+	    SendClientMessageEx(userid, COLOR_YELLOW, "* Whisper from %s (%d): %.64s", ReturnName(playerid, 0), playerid, text);
+	    SendClientMessageEx(userid, COLOR_YELLOW, "...%s *", text[64]);
 
 	    SendClientMessageEx(playerid, COLOR_YELLOW, "** Whisper to %s (%d): %.64s", ReturnName(userid, 0), userid, text);
-	    SendClientMessageEx(playerid, COLOR_YELLOW, "...%s **", text[64]);
+	    SendClientMessageEx(playerid, COLOR_YELLOW, "...%s *", text[64]);
 	}
 	else {
-	    SendClientMessageEx(userid, COLOR_YELLOW, "** Whisper from %s (%d): %s **", ReturnName(playerid, 0), playerid, text);
-	    SendClientMessageEx(playerid, COLOR_YELLOW, "** Whisper to %s (%d): %s **", ReturnName(userid, 0), userid, text);
+	    SendClientMessageEx(userid, COLOR_YELLOW, "* Whisper from %s (%d): %s *", ReturnName(playerid, 0), playerid, text);
+	    SendClientMessageEx(playerid, COLOR_YELLOW, "** Whisper to %s (%d): %s *", ReturnName(userid, 0), userid, text);
 	}
 	SendNearbyMessage(playerid, 30.0, COLOR_PURPLE, "* %s mutters something in %s's ear.", ReturnName(playerid, 0), ReturnName(userid, 0));
 	return 1;

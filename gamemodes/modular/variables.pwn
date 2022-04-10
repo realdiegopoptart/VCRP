@@ -117,7 +117,7 @@
 
 
 // Defines //
-#define DonatorOnly	"[Alert]:{FFFFFF} This command is restricted to users with Premium Subscriptions!"
+#define DonatorOnly	"[Donator]: {FFFFFF}This command is restricted to users with VIP!"
 
 #define MAX_CORPSE (75)
 #define MAX_BILLBOARDS (80)
@@ -170,21 +170,6 @@
 #define MAX_ROADBLOCKS 200
 #define VISIBLE_ITEMS 1200
 #define PRISON_WORLD (10000)
-
-// Vehicle Bomb Stuff
-#define BOMB_ARMTIME					15 		// Amount of seconds it takes to arm a bomb
-#define BOMB_CHECKTIME 					10		// Amount of seconds it takes to check for bombs in a vehicle
-#define BOMB_DISARMTIME					5		// Amount of seconds it takes to attempt to disarm a bomb
-#define BOMB_USE_DISTANCE				3.0		// FLOAT, how far away the player has to be from the vehicle to use any bombs
-
-#define VEHICLE_BOMB_TYPE_UNARMED		0
-#define VEHICLE_BOMB_TYPE_IGNITION		1
-#define VEHICLE_BOMB_TYPE_TIMER			2
-#define VEHICLE_BOMB_TYPE_SPEED			3
-#define VEHICLE_BOMB_TYPE_REMOTE		4
-
-#define MAX_EXPLOSIVES_PER_PLAYER		1
-#define MAX_EXPLOSIVES					MAX_PLAYERS * MAX_EXPLOSIVES_PER_PLAYER
 
 //Custom Damage
 #define BODY_PART_TORSO (3)
@@ -644,7 +629,8 @@ enum houseData {
 	houseMoney,
 	houseMapIcon,
 	Text3D:houseText3D,
-	housePickup,
+	/* housePickup, */
+	houseCheckpoint,
 	houseLights,
 	houseWeapons[10],
 	houseAmmo[10]
@@ -678,6 +664,7 @@ enum businessData {
 	bizVault,
 	bizProducts,
 	bizPickup,
+	bizCheckpoint,
 	bizShipment,
 	bizPrices[21],
 	Text3D:bizText3D,
@@ -805,7 +792,8 @@ enum jobData {
 	jobWorld,
 	jobPointInt,
 	jobPointWorld,
-	jobPickups[3],
+	/* jobPickups[3], */
+	jobCheckpoint[3],
 	Text3D:jobText3D[3]
 };
 
@@ -1207,24 +1195,10 @@ enum eData
 	Text3D:explosiveLabel
 }
 
-new explosiveData[MAX_EXPLOSIVES][eData];
-
-enum e_Bomb_Vehicles
-{
-			bv_i_ArmedType,
-			bv_i_ExplosionTimer,
-			bv_i_BombOwner,
-	bool: 	bv_b_BombActivated,
-	bool:	bv_b_BombDisarmed
-};
-
 enum e_InventoryItems {
 	e_InventoryItem[32],
 	e_InventoryModel
 };
-
-new
-	g_Bomb_Vehicles[MAX_VEHICLES][e_Bomb_Vehicles];
 
 new const g_aInventoryItems[][e_InventoryItems] = {
 	{"Marijuana", 1578},
@@ -1291,7 +1265,6 @@ new const g_aInventoryItems[][e_InventoryItems] = {
 	{"Truck License", 1581},
 	{"Airplane License", 1581},
 	{"Helicopter License", 1581},
-	{"Bomb", 1654},
 	{"Bait", 1265},
 	{"Fishing Rod", 18632},
 	{"Painkiller", 2709}
